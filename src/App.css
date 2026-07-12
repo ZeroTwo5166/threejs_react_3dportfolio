@@ -1,0 +1,199 @@
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #04060f;
+  color: #e8ecf8;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+#canvas-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh; /* matches the probe measurement in scrollTimeline.js */
+  z-index: 0;
+}
+
+
+.scroll-section {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 8vw;
+  pointer-events: none;
+}
+
+.hero-container {
+  position: absolute;
+  top: 25%;
+  left: 10%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 500px;
+}
+
+
+.hero-name {
+  font-size: 6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #00f7ff;
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.hero-badge-container {
+  margin-top: 5px;
+  margin-left: 20px;
+}
+
+.hero-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transform: rotate(-3deg);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+
+}
+
+/* The Animation */
+.animate-badge {
+  animation: popInOut 2.5s ease-in-out forwards;
+}
+
+
+.scroll-down-btn {
+  margin-top: 35px;
+  margin-left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid;
+  padding: 10px 24px;
+  border-radius: 50px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: inherit;
+  transition: none;
+  pointer-events: auto;
+}
+
+
+/* Bouncing arrow animation */
+.scroll-down-btn svg {
+  animation: bounceArrow 2s infinite ease-in-out;
+}
+
+
+.next-section {
+  background: rgba(10, 16, 32, 0.85);
+}
+
+
+@media (pointer: fine) {
+  * { cursor: none !important; }
+  input, textarea { cursor: auto !important; }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+
+@keyframes popInOut {
+  0% {
+    opacity: 0;
+    transform: rotate(-3deg) translateY(10px) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: rotate(-3deg) translateY(0) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: rotate(-3deg) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(-3deg) translateY(-10px) scale(0.9);
+  }
+}
+
+@keyframes bounceArrow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(5px);
+  }
+}
+
+
+/* Tablets and small laptops */
+@media (max-width: 900px) {
+  .hero-container {
+    top: 12%;
+    left: 35%;
+    max-width: 420px;
+  }
+
+  .hero-name {
+    font-size: 4rem;
+  }
+
+  .hero-badge {
+    font-size: 1rem;
+    padding: 7px 14px;
+  }
+}
+
+/* Phones */
+@media (max-width: 600px) {
+  .hero-container {
+    top: 8%;              /* pinned near the top */
+    left:23%;
+    max-width: none;
+  }
+
+  .hero-name {
+    font-size: 4rem;   /* scaled down from 6rem */
+    line-height: 1.15;
+  }
+
+  .hero-badge-container {
+    margin-top: 8px;
+    margin-left: 4px;     /* the 20px offset looks off-center on mobile */
+  }
+
+  .hero-badge {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    letter-spacing: 0.5px;
+  }
+
+  .scroll-down-btn {
+    margin-top: 24px;
+    margin-left: 4px;
+    font-size: 0.95rem;
+    padding: 8px 18px;
+  }
+
+  .scroll-down-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
