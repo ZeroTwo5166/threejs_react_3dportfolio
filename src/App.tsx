@@ -49,8 +49,8 @@ export default function App() {
   return (
     <div id="page" ref={pageRef}>
 
-      <Navbar />
       <CustomCursor />
+      <Navbar />
 
       {/* Fixed 3D stage — the page scrolls over it. */}
       <div id="canvas-container">
@@ -137,6 +137,8 @@ export default function App() {
           style={{ height: runwayHeightVh(), width: '100%' }}
         />
 
+        {/* The BlackHole now lives inside <About /> so it's scoped to the
+            About section only — see About.tsx / Blackhole.tsx. */}
         <div style={{ pointerEvents: 'auto' }}>
           <About />
         </div>

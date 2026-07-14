@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useGraph } from '@react-three/fiber'
 import { useGLTF, useAnimations, useFBX, useTexture, Sparkles, Billboard } from '@react-three/drei'
 import { SkeletonUtils } from 'three-stdlib'
@@ -22,31 +22,23 @@ const PLANET_SIZE_SCALE = 0.7
 
 const TECH_ICONS: TechIcon[] = [
   { name: 'angular', tex: '/logos/angular.png' },
-  { name: 'csharp',  tex: '/logos/csharp.png' },
-  { name: 'mssql',   tex: '/logos/mssql.png', size: 9, focusScale: 1.25 },
-  { name: 'nextjs',  tex: '/logos/nextjs.png' },
-  { name: 'node',    tex: '/logos/node.png' },
-  { name: 'react',   tex: '/logos/react.png' },
+  { name: 'csharp', tex: '/logos/csharp.png' },
+  { name: 'mssql', tex: '/logos/mssql.png', size: 9, focusScale: 1.25 },
+  { name: 'nextjs', tex: '/logos/nextjs.png' },
+  { name: 'node', tex: '/logos/node.png' },
+  { name: 'react', tex: '/logos/react.png' },
   { name: 'threejs', tex: '/logos/threejs.png' },
-  { name: 'ubuntu',  tex: '/logos/linux.png' },
+  { name: 'ubuntu', tex: '/logos/linux.png' },
 ]
 
 // ─── Focus animation tuning ─────────────────────────────────────────────────
-// How the orbit logos react when a system row is toggled in the About panel.
-const FOCUS_SCALE_MULT   = 1.7   // highlighted logo grows to 170%
-const DIM_SCALE_MULT     = 0.8   // non-focused logos shrink slightly
-const DIM_OPACITY        = 0.18  // ...and fade back
-const FOCUS_LERP         = 0.08  // per-frame easing toward targets
-const FOCUS_ORBIT_FACTOR = 0.15  // orbit slows to 15% speed while focused
+const FOCUS_SCALE_MULT = 1.7
+const DIM_SCALE_MULT = 0.8
+const DIM_OPACITY = 0.18
+const FOCUS_LERP = 0.08
+const FOCUS_ORBIT_FACTOR = 0.15
 
 // ─── Stasis Pod defaults ────────────────────────────────────────────────────
-// These seed the Leva panel's initial slider values. Drag the panel to
-// reposition the pod for the About section, then read the values off the
-// panel and update these defaults to lock them back in.
-//
-// IMPORTANT: podX/podY/podZ are treated as WORLD-space coordinates (see
-// the worldToLocal conversion in useFrame below) — they are NOT the same
-// as the pod's local position inside its parent group.
 const POD_DEFAULTS = {
   x: -1.2,
   y: -6.5,
@@ -55,41 +47,54 @@ const POD_DEFAULTS = {
   rotY: 1.83,
 }
 
-// ─── Avatar-in-pod defaults ─────────────────────────────────────────────────
-// During the jump the avatar model blends toward the pod: it shrinks to
-// `scale` and moves to (pod position + x/y/z offset). The offsets are
-// RELATIVE TO THE POD in the pod's parent space, so repositioning the pod
-// via the Leva sliders keeps the avatar seated correctly inside it.
-// Tune live via the "Avatar in Pod" Leva folder, then copy values here.
+// ─── Avatar-in-pod defaults (including rotation) ──────────────────────────
 const IN_POD_DEFAULTS = {
   scale: 0.64,
   x: -23.5,
   y: -2.0,
   z: -8.5,
+  rotX: 0,
+  rotY: 0,
+  rotZ: 0,
 }
 
 // ─── Small-screen pod layout ────────────────────────────────────────────────
-// Below this viewport width the About panel stacks on TOP (see the
-// max-width: 2000px rules in About.tsx) and the pod is AUTO-FITTED to the
-// lower part of the viewport: its bottom is anchored just above the
-// viewport's bottom edge, and its scale is capped so it occupies at most
-// `heightFrac` of the viewport height. Both are computed by projecting
-// through the real camera every frame, so the pod can never extend below
-// the viewport — which is what previously made it hang over the Projects
-// section during the exit, and left dead space on phones.
 const SMALL_SCREEN = {
-  breakpoint: 2200, // px — must match the About.tsx media query
-  xOffset: 20,       // world-units horizontal shift (e.g. to centre the pod)
-  yOffset: -6.7,
-  heightFrac: 0.68,  // pod may fill at most this fraction of the viewport height
-  bottomNdc: -0.95, // pod bottom anchor, in NDC (-1 = exact viewport bottom)
+  breakpoint: 2200,
+  xOffset: 15.8,
+  yOffset: -2.2,
+  heightFrac: 0.62,
+  bottomNdc: -0.95,
 }
 
-// ─── Tech Orbit (old Leva defaults, hardcoded) ─────────────────────────────
-// The pod is the "sun", these logos are the "planets". Positions start on
-// an evenly-spaced radius-25 circle — the same layout the old Leva sliders
-// defaulted to before anything was dragged. Adjust x/y/z per icon here if
-// you want to hand-tune specific spots later.
+// ─── Mobile stacked layout (≤1000px): pod on top, About panel below ────────
+// Exported: About.tsx derives its "does the content fit?" check from these
+// same values, so the two layouts can never drift apart.
+export const MOBILE = {
+  breakpoint: 1000,
+  xOffset: 0,       // nudge from horizontal center
+  yOffset: 0,       // nudge from the top-anchored rest position
+  heightFrac: 0.34, // pod may occupy at most this fraction of viewport height
+  topNdc: 0.67,     // NDC y where the pod's top edge sits (1 = very top)
+}
+
+
+const SPARKLES = {
+  desktopCount: 5000,
+  smallCount: 4000,   //below SMALL_SCREEN.breakpoint (2200px)
+  mobileCount: 1500,  // at or below MOBILE.breakpoint (1000px)
+}
+
+
+function getSparkleCount(): number {
+  if (typeof window === 'undefined') return SPARKLES.desktopCount
+  const w = window.innerWidth
+  if (w <= MOBILE.breakpoint) return SPARKLES.mobileCount
+  if (w < SMALL_SCREEN.breakpoint) return SPARKLES.smallCount
+  return SPARKLES.desktopCount
+}
+
+// ─── Tech Orbit ─────────────────────────────────────────────────────────────
 const ORBIT = {
   autoOrbit: true,
   speed: 1,
@@ -120,10 +125,7 @@ const orbitPlanets: OrbitPlanetData[] = TECH_ICONS.map((icon, i) => {
   }
 })
 
-// A single "planet" — a billboarded logo plane that always faces the
-// camera. Reacts to the About panel: when a system row is toggled on (via
-// techStore), the matching logo eases up in scale while every other logo
-// shrinks and dims. Driven per-frame from the store — no React re-renders.
+// ─── Orbit Planet component ─────────────────────────────────────────────────
 type OrbitPlanetProps = {
   name: string
   texture: THREE.Texture
@@ -177,9 +179,7 @@ function OrbitPlanet({ name, texture, position, size, focusScale = FOCUS_SCALE_M
   )
 }
 
-// The full orbit system — logos spin slowly around the pod (toggle via
-// `autoOrbit`). While a system is focused from the About panel, the spin
-// eases down to a crawl so the highlighted logo is easy to look at.
+// ─── Tech Orbit system ──────────────────────────────────────────────────────
 type TechOrbitProps = {
   planets: OrbitPlanetData[]
   autoOrbit: boolean
@@ -221,8 +221,7 @@ function TechOrbit({ planets, autoOrbit, speed, tilt }: TechOrbitProps) {
 
 useTexture.preload(TECH_ICONS.map((t) => t.tex))
 
-// Which clip renders each phase. 'standing' holds SitToStand's last frame;
-// 'landed' holds Jumping's last frame.
+// ─── Phase-to-clip mapping ──────────────────────────────────────────────────
 const PHASE_CLIP: Record<AvatarPhaseName, 'Typing' | 'SitToStand' | 'Turning' | 'Walking' | 'Jumping'> = {
   typing: 'Typing',
   sitToStand: 'SitToStand',
@@ -233,7 +232,6 @@ const PHASE_CLIP: Record<AvatarPhaseName, 'Typing' | 'SitToStand' | 'Turning' | 
   landed: 'Jumping',
 }
 
-// World-space point the head/neck snap to once standing (old tuning).
 const HEAD_FOLLOW_TARGET = new THREE.Vector3(-32, 138, 253)
 
 export function Avatar(props: AvatarProps) {
@@ -241,30 +239,36 @@ export function Avatar(props: AvatarProps) {
 
   const group = useRef<THREE.Group>(null)
   const podRef = useRef<THREE.Group>(null)
-  const modelRef = useRef<THREE.Group>(null) // blends the model into the pod during the jump
+  const modelRef = useRef<THREE.Group>(null)
   const defaultNeckRotation = useRef<THREE.Quaternion | null>(null)
   const defaultHeadRotation = useRef<THREE.Quaternion | null>(null)
   const snappedToCamera = useRef(false)
   const isAtTop = useRef(true)
 
-  // Reused every frame for the world→local pod position conversion, so we
-  // don't allocate a new Vector3 60 times a second.
   const podWorldTarget = useRef(new THREE.Vector3())
-  // Scratch vectors for the per-frame camera projection probes and the
-  // parent world-scale lookup used by the small-screen auto-fit.
   const probeA = useRef(new THREE.Vector3())
   const probeB = useRef(new THREE.Vector3())
   const parentScaleTmp = useRef(new THREE.Vector3())
 
-  // ── Stasis Pod controls — drag these live to reposition the pod for the
-  // About section. podX/podY/podZ are WORLD-space coordinates (converted
-  // to local space each frame below), so the sliders behave the same
-  // regardless of how much the parent chain (chair-swivel rotation, scene
-  // rotation) currently has applied.
-  // podLocked skips the scroll-driven rise animation and just pins the pod
-  // at (podX, podY, podZ) so you can see it immediately without scrolling
-  // all the way to the jump landing every time you tweak a value. Turn it
-  // back off once you're happy with the position.
+  const [sparkleCount, setSparkleCount] = useState(getSparkleCount)
+
+  useEffect(() => {
+    const onResize = () => {
+      smallTargetRef.current = window.innerWidth < SMALL_SCREEN.breakpoint ? 1 : 0
+      mobileTargetRef.current = window.innerWidth <= MOBILE.breakpoint ? 1 : 0
+      setSparkleCount(getSparkleCount())
+    }
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // ── Responsive scaling ────────────────────────────────────────────────────
+  const { modelScale } = useControls('Responsive Scaling', {
+    modelScale: { value: 1, min: 0.5, max: 2, step: 0.01 },
+  })
+
+  // ── Stasis Pod controls ──────────────────────────────────────────────────
   const { podX, podY, podZ, podScale, podRotY, podLocked } = useControls('Stasis Pod', {
     podX: { value: POD_DEFAULTS.x, min: -100, max: 100, step: 0.1 },
     podY: { value: POD_DEFAULTS.y, min: -100, max: 100, step: 0.1 },
@@ -274,64 +278,70 @@ export function Avatar(props: AvatarProps) {
     podLocked: { value: false, label: 'Lock pod visible (tuning mode)' },
   })
 
-  // ── Avatar-in-pod controls — how the model shrinks/repositions into the
-  // pod during the jump. Offsets are relative to the pod. Turn podLocked
-  // on and scroll past the jump (phase 'landed') to tune the seated pose.
-  const { inPodScale, inPodX, inPodY, inPodZ } = useControls('Avatar in Pod', {
+  // ── Avatar-in-pod controls (position, scale, rotation) ──────────────────
+  const { inPodScale, inPodX, inPodY, inPodZ, inPodRotX, inPodRotY, inPodRotZ } = useControls('Avatar in Pod', {
     inPodScale: { value: IN_POD_DEFAULTS.scale, min: 0.05, max: 1, step: 0.01 },
     inPodX: { value: IN_POD_DEFAULTS.x, min: -30, max: 30, step: 0.1 },
     inPodY: { value: IN_POD_DEFAULTS.y, min: -30, max: 30, step: 0.1 },
     inPodZ: { value: IN_POD_DEFAULTS.z, min: -30, max: 30, step: 0.1 },
+    inPodRotX: { value: IN_POD_DEFAULTS.rotX, min: -Math.PI, max: Math.PI, step: 0.01 },
+    inPodRotY: { value: IN_POD_DEFAULTS.rotY, min: -Math.PI, max: Math.PI, step: 0.01 },
+    inPodRotZ: { value: IN_POD_DEFAULTS.rotZ, min: -Math.PI, max: Math.PI, step: 0.01 },
   })
 
-  // ── Small-screen pod controls — how the pod auto-fits when the viewport
-  // is narrower than SMALL_SCREEN.breakpoint. heightFrac is the main knob:
-  // how much of the viewport height the pod may occupy (it stays anchored
-  // to the bottom edge regardless).
+  // ── Small-screen pod controls ────────────────────────────────────────────
   const { smallXOffset, smallYOffset, smallHeightFrac } = useControls('Pod (below 2000px)', {
     smallXOffset: { value: SMALL_SCREEN.xOffset, min: -60, max: 60, step: 0.1 },
-    smallYOffset: { value: SMALL_SCREEN.yOffset, min: -60, max: 60, step: 0.1 }, // <-- ADD THIS
+    smallYOffset: { value: SMALL_SCREEN.yOffset, min: -60, max: 60, step: 0.1 },
     smallHeightFrac: { value: SMALL_SCREEN.heightFrac, min: 0.2, max: 0.85, step: 0.01 },
   })
 
-  // 0 = wide layout, 1 = stacked layout; target flips on resize, the
-  // per-frame value eases toward it so the pod glides instead of popping.
+  // ── Mobile stacked-layout pod controls (≤1000px) ─────────────────────────
+  const { mobileXOffset, mobileYOffset, mobileHeightFrac, mobileTopNdc } = useControls('Pod (below 1000px)', {
+    mobileXOffset: { value: MOBILE.xOffset, min: -60, max: 60, step: 0.1 },
+    mobileYOffset: { value: MOBILE.yOffset, min: -60, max: 60, step: 0.1 },
+    mobileHeightFrac: { value: MOBILE.heightFrac, min: 0.15, max: 0.6, step: 0.01 },
+    mobileTopNdc: { value: MOBILE.topNdc, min: 0.5, max: 1, step: 0.01 },
+  })
+
+  // ── Small-screen / mobile state ───────────────────────────────────────────
   const smallTargetRef = useRef(
     typeof window !== 'undefined' && window.innerWidth < SMALL_SCREEN.breakpoint ? 1 : 0
   )
   const smallTRef = useRef(smallTargetRef.current)
+  const mobileTargetRef = useRef(
+    typeof window !== 'undefined' && window.innerWidth <= MOBILE.breakpoint ? 1 : 0
+  )
+  const mobileTRef = useRef(mobileTargetRef.current)
+
   useEffect(() => {
     const onResize = () => {
       smallTargetRef.current = window.innerWidth < SMALL_SCREEN.breakpoint ? 1 : 0
+      mobileTargetRef.current = window.innerWidth <= MOBILE.breakpoint ? 1 : 0
     }
     onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // ── Model ────────────────────────────────────────────────────────────────
+  // ── Models ────────────────────────────────────────────────────────────────
   const { scene } = useGLTF('models/Avatar-transformed.glb')
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
   const { nodes } = useGraph(clone)
 
-  // ── Stasis pod ───────────────────────────────────────────────────────────
   const { scene: podScene } = useGLTF('models/transparentStasisPod.glb')
   const podClone = useMemo(() => {
     const cloned = SkeletonUtils.clone(podScene)
     cloned.traverse((child) => {
       const mesh = child as THREE.Mesh
       if ((mesh as any).isMesh) {
-        // Force the GPU to never cull this model, ensuring it pre-compiles
         mesh.frustumCulled = false
-
         const material = mesh.material as THREE.Material | THREE.Material[] | undefined
         const materials = Array.isArray(material) ? material : material ? [material] : []
         materials.forEach((mat) => {
-          // Force the glass to render properly over the avatar and smoke
           if (mat.transparent || mat.opacity < 1) {
             mat.transparent = true
             mat.depthWrite = false
-            // Force the glass to render AFTER the smoke
             mesh.renderOrder = 2
           }
         })
@@ -340,9 +350,6 @@ export function Avatar(props: AvatarProps) {
     return cloned
   }, [podScene])
 
-  // Half the pod's height in its own (unscaled) local units — measured once,
-  // used by the small-screen auto-fit to convert "fraction of viewport"
-  // into a concrete pod scale and to anchor the pod's bottom edge.
   const podBaseHalfHeight = useMemo(() => {
     const box = new THREE.Box3().setFromObject(podClone)
     const size = box.getSize(new THREE.Vector3())
@@ -356,7 +363,7 @@ export function Avatar(props: AvatarProps) {
     if (head) defaultHeadRotation.current = head.quaternion.clone()
   }, [nodes])
 
-  // ── Clips ────────────────────────────────────────────────────────────────
+  // ── Clips ──────────────────────────────────────────────────────────────────
   const { animations: typingAnimation } = useFBX('animations/Typing.fbx')
   const { animations: standingAnimation } = useFBX('animations/Idle.fbx')
   const { animations: sitToStandAnimation } = useFBX('animations/Sit_To_Stand.fbx')
@@ -364,11 +371,7 @@ export function Avatar(props: AvatarProps) {
   const { animations: walkingAnimation } = useFBX('animations/Walking.fbx')
   const { animations: jumpingAnimation } = useFBX('animations/Jumping.fbx')
 
-  // ── Track stitching (ported verbatim) ────────────────────────────────────
-  // Pins the turn clip in place at the sit-to-stand end pose, then rebases
-  // the walk clip to start at the turn's end (position + rotation), then
-  // rebases the jump to start at the walk's end — so scrubbing across phase
-  // boundaries never teleports the hips.
+  // ── Track stitching ──────────────────────────────────────────────────────
   useMemo(() => {
     if (!sitToStandAnimation[0] || !turningAnimation[0] || !walkingAnimation[0] || !jumpingAnimation[0]) return
 
@@ -463,7 +466,6 @@ export function Avatar(props: AvatarProps) {
 
     const jumpQOffset = walkEndQ.clone().multiply(jumpStartQ.clone().invert())
 
-    // Keep only the yaw component so the jump doesn't inherit lean.
     const jumpEuler = new THREE.Euler().setFromQuaternion(jumpQOffset, 'YXZ')
     jumpEuler.x = 0
     jumpEuler.z = 0
@@ -533,12 +535,12 @@ export function Avatar(props: AvatarProps) {
 
   useEffect(() => () => { mixer?.stopAllAction() }, [mixer])
 
-  // ── Scroll-scrubbed phase machine ────────────────────────────────────────
+  // ── Main loop ─────────────────────────────────────────────────────────────
   useFrame((state) => {
     const s = scrollScreens(vhPx)
     const { phase, p } = avatarPhase(s)
 
-    // Head snaps to the camera target once the stand-up completes.
+    // Head follow
     if (!snappedToCamera.current && phase === 'sitToStand' && p >= 1) {
       snappedToCamera.current = true
     }
@@ -556,84 +558,76 @@ export function Avatar(props: AvatarProps) {
       if (defaultHeadRotation.current && head) head.quaternion.slerp(defaultHeadRotation.current, 0.1)
     }
 
-    // ── Small-screen layout: bottom-anchored auto-fit ────────────────────
-    // Eases 0→1 when the viewport drops below SMALL_SCREEN.breakpoint.
-    // Instead of blind world-unit offsets (which could push the pod's tail
-    // below the viewport — making it bleed over the Projects section on
-    // exit, and leaving dead space on phones), the pod's resting position
-    // and scale are derived from the camera projection itself:
-    //   • scale is capped so the pod is at most `smallHeightFrac` of the
-    //     viewport height,
-    //   • its bottom edge is anchored at SMALL_SCREEN.bottomNdc — just
-    //     above the viewport's bottom edge.
-    // Because the pod then always fits inside the viewport while pinned,
-    // the enter/exit lockstep carries it fully off-screen exactly as About
-    // leaves — it geometrically cannot overlap neighbouring sections.
+    // ── Small-screen auto-fit ─────────────────────────────────────────────
     smallTRef.current = THREE.MathUtils.lerp(smallTRef.current, smallTargetRef.current, 0.08)
     const smallT = smallTRef.current
-    const effPodX = podX + smallXOffset * smallT
+    mobileTRef.current = THREE.MathUtils.lerp(mobileTRef.current, mobileTargetRef.current, 0.08)
+    const mobileT = mobileTRef.current
 
-    // Linear fit of NDC-y as a function of world-y at the pod's depth,
-    // from two projected probe points. 1 screen of scroll = 2 NDC units,
-    // so the true viewport height in world units is 2 / ndcPerY — used
-    // both for the auto-fit and for the enter/exit lockstep (more accurate
-    // than the fov/tan estimate if the camera is ever pitched).
+    let effPodX = podX + smallXOffset * smallT
+
     const cam = state.camera as THREE.PerspectiveCamera
     probeA.current.set(effPodX, 0, podZ).project(cam)
     const ndcAtY0 = probeA.current.y
     probeB.current.set(effPodX, 10, podZ).project(cam)
     const ndcPerY = (probeB.current.y - ndcAtY0) / 10
 
+    const basePodScale = podScale * modelScale
+
     let effPodY = podY
-    let effPodScale = podScale
+    let effPodScale = basePodScale
 
     if (podRef.current && podRef.current.parent && ndcPerY > 1e-6 && smallT > 0.001) {
       const viewportWorldH = 2 / ndcPerY
-      // The pod's rendered size also inherits its parents' scale (e.g. the
-      // responsive scene shrink in Home.tsx), so fit against world scale.
       const parentScaleY =
         podRef.current.parent.getWorldScale(parentScaleTmp.current).y || 1
 
       const maxHalfWorld = (smallHeightFrac * viewportWorldH) / 2
       const fitScale = Math.min(
-        podScale,
+        basePodScale,
         maxHalfWorld / (podBaseHalfHeight * parentScaleY)
       )
       const halfWorld = podBaseHalfHeight * fitScale * parentScaleY
 
-      // World-space Y whose projection lands on the bottom anchor line.
       const bottomWorldY = (SMALL_SCREEN.bottomNdc - ndcAtY0) / ndcPerY
-      
-      // --> ADD smallYOffset TO THIS LINE <--
-      const smallRestY = bottomWorldY + halfWorld + smallYOffset 
+      const smallRestY = bottomWorldY + halfWorld + smallYOffset
 
       effPodY = THREE.MathUtils.lerp(podY, smallRestY, smallT)
-      effPodScale = THREE.MathUtils.lerp(podScale, fitScale, smallT)
+      effPodScale = THREE.MathUtils.lerp(basePodScale, fitScale, smallT)
+
+      // ── Mobile (≤1000px): shrink further, anchor to top, center on x ────
+      // The About panel drops to the bottom half via CSS (About.tsx), so the
+      // pod claims the top band of the viewport and the two never overlap.
+      if (mobileT > 0.001) {
+        const maxHalfMobile = (mobileHeightFrac * viewportWorldH) / 2
+        const mobileFitScale = Math.min(
+          effPodScale,
+          maxHalfMobile / (podBaseHalfHeight * parentScaleY)
+        )
+        const mobileHalfWorld = podBaseHalfHeight * mobileFitScale * parentScaleY
+
+        // Pod's top edge sits at mobileTopNdc, so its center hangs below it.
+        const topWorldY = (mobileTopNdc - ndcAtY0) / ndcPerY
+        const mobileRestY = topWorldY - mobileHalfWorld + mobileYOffset
+
+        effPodScale = THREE.MathUtils.lerp(effPodScale, mobileFitScale, mobileT)
+        effPodY = THREE.MathUtils.lerp(effPodY, mobileRestY, mobileT)
+
+        // Horizontal centering: solve for the world x whose NDC x is 0.
+        probeA.current.set(effPodX, 0, podZ).project(cam)
+        const ndcX0 = probeA.current.x
+        probeB.current.set(effPodX + 10, 0, podZ).project(cam)
+        const ndcPerX = (probeB.current.x - ndcX0) / 10
+        if (Math.abs(ndcPerX) > 1e-6) {
+          const centeredX = effPodX + (0 - ndcX0) / ndcPerX + mobileXOffset
+          effPodX = THREE.MathUtils.lerp(effPodX, centeredX, mobileT)
+        }
+      }
     }
 
-    // How much the small-screen fit shrank the pod relative to the wide
-    // layout — the seated avatar's in-pod scale/offsets follow this.
-    const podShrink = effPodScale / Math.max(podScale, 1e-6)
+    const podShrink = effPodScale / Math.max(basePodScale, 1e-6)
 
-    // ── Stasis pod — glued to the About section ──────────────────────────
-    // Three regimes, all moving at exactly one viewport of world units
-    // (at the pod's depth) per screen of scroll, LINEARLY — the same rate
-    // the page content moves — so the pod never slides relative to About:
-    //   1. ENTER  (NEXT_SECTION_PIN-1 → NEXT_SECTION_PIN): rises with
-    //      About's top edge, from one screen below its resting spot.
-    //   2. PINNED (NEXT_SECTION_PIN → ABOUT_UNPIN): About's sticky is
-    //      pinned; the pod holds at its resting Y.
-    //   3. EXIT   (s > ABOUT_UNPIN): About scrolls off the top; the pod
-    //      rides up with it and leaves the viewport.
-    // Outside a small margin around that window the pod group is hidden
-    // entirely, so it can never bleed over neighbouring sections (and the
-    // Sparkles stop costing anything).
-    //
-    // podX/podY/podZ are WORLD-space coordinates — podRef is nested inside
-    // rotated parent groups, so the desired world target is converted
-    // through parent.worldToLocal() each frame. That keeps the Leva
-    // sliders behaving like plain world coordinates no matter what the
-    // chair/scene rotation is doing.
+    // ── Pod positioning ────────────────────────────────────────────────────
     if (podRef.current && podRef.current.parent) {
       podRef.current.scale.set(effPodScale, effPodScale, effPodScale)
       podRef.current.rotation.set(0, podRotY, 0)
@@ -648,22 +642,18 @@ export function Avatar(props: AvatarProps) {
           ndcPerY > 1e-6
             ? 2 / ndcPerY
             : 2 *
-              Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) *
-              Math.abs(cam.position.z - podZ)
+            Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) *
+            Math.abs(cam.position.z - podZ)
 
         const riseStart = TL.NEXT_SECTION_PIN - 1
 
         if (s <= ABOUT_UNPIN) {
-          // ENTER + PINNED
           const riseP = Math.max(0, Math.min(s - riseStart, 1))
           targetWorldY = effPodY - (1 - riseP) * worldPerScreen
         } else {
-          // EXIT — rides up with About as it scrolls off
           targetWorldY = effPodY + (s - ABOUT_UNPIN) * worldPerScreen
         }
 
-        // Hidden until the entry window approaches, and again once the
-        // exit has carried it well past the top of the viewport.
         podRef.current.visible = s > riseStart - 0.1 && s < ABOUT_UNPIN + 1.5
       }
 
@@ -672,36 +662,41 @@ export function Avatar(props: AvatarProps) {
       podRef.current.position.copy(localTarget)
     }
 
-    // ── Avatar shrinks into the pod during the jump ──────────────────────
-    // Blends the model wrapper from its rest transform (scale 1, origin)
-    // toward the pod's CURRENT local position + tuned offset. Tracking
-    // podRef.position live means the avatar rides the pod through both
-    // the rise AND the exit — it's glued to the About section for free.
-    // Runs after the pod block above so this frame's pod position is
-    // fresh. Once landed, the model shares the pod's visibility so it
-    // can't linger over other sections either.
+    // ── Avatar blend into pod ─────────────────────────────────────────────
     if (modelRef.current && podRef.current) {
       let t = 0
       if (phase === 'jumping') t = p
       else if (phase === 'landed') t = 1
 
-      const eased = t * t * (3 - 2 * t) // smoothstep — soft start and landing
+      const eased = t * t * (3 - 2 * t)
 
-      // The in-pod scale AND offsets are multiplied by podShrink so the
-      // seated avatar stays proportionally placed inside the pod when the
-      // small-screen layout shrinks it.
-      const sc = THREE.MathUtils.lerp(1, inPodScale * podShrink, eased)
+      const scaledInPodScale = inPodScale * modelScale
+      const scaledInPodX = inPodX * modelScale
+      const scaledInPodY = inPodY * modelScale
+      const scaledInPodZ = inPodZ * modelScale
+
+      // Scale
+      const sc = THREE.MathUtils.lerp(1, scaledInPodScale * podShrink, eased)
       modelRef.current.scale.setScalar(sc)
 
+      // Position
       modelRef.current.position.set(
-        (podRef.current.position.x + inPodX * podShrink) * eased,
-        (podRef.current.position.y + inPodY * podShrink) * eased,
-        (podRef.current.position.z + inPodZ * podShrink) * eased,
+        (podRef.current.position.x + scaledInPodX * podShrink) * eased,
+        (podRef.current.position.y + scaledInPodY * podShrink) * eased,
+        (podRef.current.position.z + scaledInPodZ * podShrink) * eased,
       )
+
+      // Rotation (interpolate from identity to in-pod rotation)
+      const identityQuat = new THREE.Quaternion()
+      const targetQuat = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(inPodRotX, inPodRotY, inPodRotZ)
+      )
+      modelRef.current.quaternion.copy(identityQuat).slerp(targetQuat, eased)
 
       modelRef.current.visible = phase === 'landed' ? podRef.current.visible : true
     }
 
+    // ── Animation scrubbing ──────────────────────────────────────────────
     const typing = actions['Typing']
     const sitToStand = actions['SitToStand']
     const turning = actions['Turning']
@@ -709,7 +704,6 @@ export function Avatar(props: AvatarProps) {
     const jumping = actions['Jumping']
     if (!typing || !sitToStand || !turning || !walking || !jumping) return
 
-    // At the very top: live typing loop.
     if (s <= 0) {
       if (!isAtTop.current) {
         isAtTop.current = true
@@ -724,7 +718,6 @@ export function Avatar(props: AvatarProps) {
       return
     }
 
-    // Leaving the top: hand off to the scroll-scrubbed actions.
     if (isAtTop.current) {
       isAtTop.current = false
       sitToStand.reset().setEffectiveWeight(1).play()
@@ -739,7 +732,6 @@ export function Avatar(props: AvatarProps) {
     walking.paused = true
     jumping.paused = true
 
-    // One clip active per phase; time scrubbed by phase progress.
     const activeClip = PHASE_CLIP[phase]
     sitToStand.setEffectiveWeight(activeClip === 'SitToStand' ? 1 : 0)
     turning.setEffectiveWeight(activeClip === 'Turning' ? 1 : 0)
@@ -772,12 +764,11 @@ export function Avatar(props: AvatarProps) {
 
   return (
     <group ref={group} {...props} dispose={null}>
-      {/* Pod and Smoke are siblings inside the same podRef group, so they
-          scale and travel together perfectly. */}
       <group ref={podRef}>
         <primitive object={podClone} />
         <Sparkles
-          count={5000}
+          key={sparkleCount}
+          count={sparkleCount}
           scale={[1.7, 5, 1.2]}
           size={100}
           speed={15}
@@ -786,15 +777,8 @@ export function Avatar(props: AvatarProps) {
           noise={2}
           position={[0, 2.5, 0]}
         />
-
-        {/* Tech stack orbiting the pod like planets around a sun. Nested
-            here so it rises with the pod and inherits its position/rotation
-            for free. Counter-scaled so each icon's manual X/Y/Z stays in
-            real world units regardless of podScale — but the counter-scale
-            deliberately does NOT cancel the small-screen podShrink, so the
-            whole orbit shrinks with the pod in the stacked layout. */}
         <group
-          scale={[1 / podScale, 1 / podScale, 1 / podScale]}
+          scale={[1 / (podScale * modelScale), 1 / (podScale * modelScale), 1 / (podScale * modelScale)]}
           position-y={ORBIT.yOffset}
         >
           <TechOrbit
@@ -806,10 +790,6 @@ export function Avatar(props: AvatarProps) {
         </group>
       </group>
 
-      {/* Model wrapper — blended toward the pod during the jump (scale +
-          position driven in useFrame). Inside it, the same orientation
-          wrapper as before: the armature is authored lying "flat", so the
-          rotation-x stands it up. */}
       <group ref={modelRef}>
         <group rotation-x={Math.PI / 2}>
           <primitive object={clone} />
