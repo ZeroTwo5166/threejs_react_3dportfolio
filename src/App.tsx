@@ -6,6 +6,9 @@ import './App.css'
 import { runwayHeightVh, TL } from './components/Scrolltimeline.js'
 import { CustomCursor } from './components/CustomCursor.js'
 import { IntroText } from './components/Introtext.js'
+import { About } from './components/About.js'
+import { Navbar } from './components/Navbar.js'
+import { Projects } from './components/Projects.js'
 
 
 export function getMaxScroll() {
@@ -21,6 +24,9 @@ export default function App() {
     { text: "Gamer", color: "#ff6b35", bg: "#ff6b35", shadow: "rgba(255, 107, 53, 0.15)" },
     { text: "Fullstack Developer", color: "#10b981", bg: "#10b981", shadow: "rgba(16, 185, 129, 0.15)" }
   ];
+
+  // REF FOR ROUTING CLICKS INTO THE CANVAS
+  const pageRef = useRef<HTMLDivElement>(null);
 
 
   useEffect(() => {
@@ -41,13 +47,19 @@ export default function App() {
   }, []);
 
   return (
-    <div id="page">
+    <div id="page" ref={pageRef}>
 
+      <Navbar />
       <CustomCursor />
 
       {/* Fixed 3D stage — the page scrolls over it. */}
       <div id="canvas-container">
-        <Canvas shadows camera={{ position: [0, 30, 150], fov: 25 }}>
+        {/* eventSource routes DOM clicks back into the 3D scene */}
+        <Canvas
+          eventSource={pageRef as React.RefObject<HTMLElement>}
+          shadows
+          camera={{ position: [0, 30, 150], fov: 25 }}
+        >
           <Suspense fallback={null}>
             <Home />
           </Suspense>
@@ -91,11 +103,6 @@ export default function App() {
                 const aboutSection = document.getElementById('about');
                 if (aboutSection) {
                   const currentPosition = window.scrollY;
-                  // Land where the About panel pins, but never past the
-                  // actual end of the document. The old target
-                  // (timeline.DEADZONE_END) sits BELOW the page bottom on
-                  // most screens, so the animation kept feeding scrollTo
-                  // positions that don't exist.
                   const targetPosition = Math.min(aboutSection.offsetTop, getMaxScroll());
                   const distance = targetPosition - currentPosition;
                   const speed = 2000;
@@ -123,27 +130,18 @@ export default function App() {
           </div>
         </section>
 
-        {/* Screens 1 → NEXT_SECTION_PIN. Pure CSS vh — sized from the same
-            constants the animation reads, so the runway is always exactly
-            long enough for the full typing → stand → turn → walk → jump
-            sequence, on any device, with no JS layout math. */}
+        {/* Screens 1 → NEXT_SECTION_PIN. */}
         <div
           id="animation-runway"
           aria-hidden="true"
           style={{ height: runwayHeightVh(), width: '100%' }}
         />
 
-        {/* Pins at exactly TL.NEXT_SECTION_PIN screens of scroll (the jump
-            has just landed). Replace with your About section. */}
-        <section id="about" className="scroll-section next-section">
-          <div className="hero-content">
-            <h2>About</h2>
-            <p>
-              This section's top reaches the viewport top at scroll ={' '}
-              {TL.NEXT_SECTION_PIN} screens — right after JUMP_END ({TL.JUMP_END}).
-            </p>
-          </div>
-        </section>
+        <div style={{ pointerEvents: 'auto' }}>
+          <About />
+        </div>
+
+        <Projects />
       </main>
     </div>
   )

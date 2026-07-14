@@ -31,8 +31,22 @@ export const TL = {
   // Where the NEXT section's top reaches the top of the viewport —
   // slightly after JUMP_END so the landing is visible before new content
   // pins. The runway spacer height derives from this (runwayHeightVh).
-  NEXT_SECTION_PIN: 5.6,
+  // The stasis pod's rise is locked to the window
+  // (NEXT_SECTION_PIN - 1 → NEXT_SECTION_PIN), the same window Home.tsx
+  // uses to slide the environment away — see Avatar.tsx.
+  NEXT_SECTION_PIN: 5.8,
+
+  // How tall the About section is, in screens. About.tsx sizes itself
+  // from this (single source of truth), and Avatar.tsx derives the pod's
+  // exit from it: the About sticky un-pins at
+  // NEXT_SECTION_PIN + ABOUT_HEIGHT_SCREENS - 1, and from that point the
+  // pod rides up and off-screen in lockstep with the departing section.
+  ABOUT_HEIGHT_SCREENS: 1.2,
 } as const
+
+// Scroll depth (in screens) where About's sticky viewport stops being
+// pinned and the whole section starts scrolling off the top.
+export const ABOUT_UNPIN = TL.NEXT_SECTION_PIN + TL.ABOUT_HEIGHT_SCREENS - 1
 
 export function runwayHeightVh(): string {
   return `${(TL.NEXT_SECTION_PIN - 1) * 100}vh`

@@ -15,7 +15,6 @@ type ModelProps = {
     onPointerOut?: (e: any) => void
 }
 
-
 // ── Models ──────────────────────────────────────────────────────────────────
 
 export function ScifiDesk(props: ModelProps) {
@@ -50,7 +49,7 @@ useGLTF.preload('models/Goku.glb')
 
 // ── Scene layout (old Leva defaults, hardcoded) ─────────────────────────────
 
-const SCENE = { pos: [13.4, -30.5, -37.5] as const, rotY: -0.6 }
+const SCENE = { pos: [7, -30.5, -37.5] as const, rotY: -0.6 }
 const LIGHTS = { ambient: 1.5, dir: 3, dirPos: [5, 10, 5] as const }
 const GROUP = { pos: [4, 0, 1.2] as const } // chair + avatar shared origin
 const DESK = { pos: [0, 0, 0] as const, scale: 1 }
@@ -133,8 +132,8 @@ function IdleGlow({
 // the text overlays, easing down to 0.5x at 480px, and recenters.
 const MODEL_SCALE_BREAKPOINT = 1700
 const MODEL_SCALE_MIN_WIDTH = 480
-const MODEL_SCALE_MIN = 0.5
-const RECENTER_OFFSET_X = -7.5
+const MODEL_SCALE_MIN = 0.6
+const RECENTER_OFFSET_X = -1.5
 const RECENTER_OFFSET_Y = 5
 
 function getResponsiveModelScale(): number {
@@ -259,13 +258,26 @@ export function Home() {
             }
         }
 
+        // ── MAGIC TRICK: Slide environment away as About slides up ─────────────
+        if (environmentRef.current) {
+            // The About section takes 1 full screen (100vh) to slide up.
+            // It finishes pinning exactly at TL.NEXT_SECTION_PIN
+            const hideStart = TL.NEXT_SECTION_PIN - 1;
+            const hideEnd = TL.NEXT_SECTION_PIN;
+            const hideProgress = progress(s, hideStart, hideEnd);
+
+            // Push the 3D environment UP and OUT of the camera view as the red background comes up
+            environmentRef.current.position.y = hideProgress * 150; 
+            
+            // Turn off rendering for the environment once it's fully hidden to save performance
+            environmentRef.current.visible = hideProgress < 1;
+        }
+
         // ── Chair swivel-back (screens 0 → CHAIR_END) — old file's timing ─────
         if (!chairRef.current || !avatarGroupRef.current) return
 
         const chairP = progress(s, 0, TL.CHAIR_END)
 
-        // Old file: chair slides fully back over the first half of the
-        // progress, then rotation kicks in from 50% → 75%.
         let targetZ = CHAIR_START_Z
         let targetRotationY = 0
 
@@ -284,22 +296,20 @@ export function Home() {
         chairRef.current.position.z = THREE.MathUtils.lerp(chairRef.current.position.z, targetZ, 0.05)
         chairRef.current.rotation.y = THREE.MathUtils.lerp(chairRef.current.rotation.y, targetRotationY, 0.05)
 
+
         // Avatar rides the chair: shares its rotation and z until the jump
         // finishes. (Post-jump reveal slide comes later with the About section.)
         avatarGroupRef.current.rotation.y = chairRef.current.rotation.y
         if (s <= TL.JUMP_END) {
             avatarGroupRef.current.position.set(GROUP.pos[0], GROUP.pos[1], chairRef.current.position.z)
         }
-        // ⬅ LATER: else-branch = post-jump slide to the stasis-pod reveal
-        // position + environment drift-away (ENV_OVERSCROLL) when About exists.
     })
 
     return (
         <>
-        <color attach="background" args={['#c9963f']} />
+            {/* The background color was removed from here so HTML shows through */}
             <group>
                 {/* Global lights — dimmed during kamehameha */}
-                {/* <OrbitControls makeDefault /> */}
                 <ambientLight intensity={kamehameha ? KAME.ambientIntensity : LIGHTS.ambient} color="#ffffff" />
                 <directionalLight
                     position={LIGHTS.dirPos as unknown as [number, number, number]}
@@ -319,7 +329,7 @@ export function Home() {
                         <meshBasicMaterial color="#000000" side={THREE.BackSide} />
                     </mesh>
 
-                    {/* ENVIRONMENT */}
+                    {/* ENVIRONMENT (Gets pushed out of view during scroll) */}
                     <group ref={environmentRef}>
                         <ScifiDesk position={[...DESK.pos]} scale={DESK.scale} />
                         <RoomTable position={[...TABLE.pos]} scale={TABLE.scale} rotation={[0, TABLE.rotY, 0]} />
