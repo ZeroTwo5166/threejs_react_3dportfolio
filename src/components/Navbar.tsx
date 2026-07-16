@@ -1,9 +1,52 @@
 import React, { useEffect, useRef, useState } from 'react'
 
-type Theme = 'cream' | 'blue'
+type Theme = 'cream' | 'blue' | 'violet' | 'teal'
 type SectionId = 'about' | 'projects' | 'contact'
 
 const SECTION_IDS: SectionId[] = ['about', 'projects', 'contact']
+
+// Per-theme palette. 'violet' mirrors the accent Projects.tsx uses
+// (ACCENT = '#c084fc', BG = '#0d0a12') and 'teal' mirrors Contact.tsx
+// (ACCENT = '#4fe3b5', BG = '#0a1210), so the navbar matches whichever
+// section you've scrolled into. 'accentRgb' is the same color as
+// comma-separated channels, for building rgba() strings at various alphas.
+const THEME_COLORS: Record<
+  Theme,
+  { accent: string; accentRgb: string; isLight: boolean; bg: string; border: string; boxShadow: string }
+> = {
+  cream: {
+    accent: '#d6a77a',
+    accentRgb: '214,167,122',
+    isLight: true,
+    bg: 'rgba(244,237,225,0.55)',
+    border: 'rgba(0,0,0,0.06)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+  },
+  blue: {
+    accent: '#7eb8f7',
+    accentRgb: '126,184,247',
+    isLight: false,
+    bg: 'rgba(10,18,32,0.55)',
+    border: 'rgba(126,184,247,0.15)',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+  },
+  violet: {
+    accent: '#c084fc',
+    accentRgb: '192,132,252',
+    isLight: false,
+    bg: 'rgba(13,10,18,0.55)', // same base as Projects.tsx's BG (#0d0a12)
+    border: 'rgba(192,132,252,0.15)',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+  },
+  teal: {
+    accent: '#4fe3b5',
+    accentRgb: '79,227,181',
+    isLight: false,
+    bg: 'rgba(10,18,16,0.55)', // same base as Contact.tsx's BG (#0a1210)
+    border: 'rgba(79,227,181,0.15)',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+  },
+}
 
 type NavbarProps = {
   // Currently unused — kept for signature compatibility with App.tsx.
@@ -29,13 +72,23 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
   useEffect(() => {
     const onScroll = () => {
       const about = document.getElementById('about')
+      const projects = document.getElementById('projects')
+      const contact = document.getElementById('contact')
 
-      if (!about) {
-        setTheme('cream')
-      } else {
-        const rect = about.getBoundingClientRect()
-        setTheme(rect.top <= 200 ? 'blue' : 'cream')
+      // Precedence: teal (contact) > violet (projects) > blue (about) >
+      // cream (hero/default). Checked in document order so whichever
+      // section you've scrolled into furthest wins.
+      let nextTheme: Theme = 'cream'
+      if (about && about.getBoundingClientRect().top <= 200) {
+        nextTheme = 'blue'
       }
+      if (projects && projects.getBoundingClientRect().top <= 200) {
+        nextTheme = 'violet'
+      }
+      if (contact && contact.getBoundingClientRect().top <= 200) {
+        nextTheme = 'teal'
+      }
+      setTheme(nextTheme)
 
       // Determine which section is currently in view
       let current: SectionId | null = null
@@ -65,30 +118,47 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
     []
   )
 
-  const scrollTo = (id: SectionId) => {
-    const el = document.getElementById(id)
+  // Custom constant-speed scroll animation, shared by ALL nav pills
+  // (about, projects, and contact all scroll the same way now).
+  // Pass the raw target scrollY position (e.g. el.offsetTop).
+  const animatedScrollTo = (targetTop: number) => {
+    const currentPosition = window.scrollY
+    const targetPosition = Math.min(targetTop, getMaxScroll())
+    const distance = targetPosition - currentPosition
 
-    if (el) {
-      // Get the element's distance from the top of the document
-      const elementPosition = el.getBoundingClientRect().top + window.scrollY
+    // Already there (or close enough) — nothing to animate, and this also
+    // avoids a divide-by-zero below that produced NaN → scrollTo(0, NaN),
+    // which browsers coerce to 0 (i.e. snaps to the very top of the page).
+    // This is what caused clicking an already-active nav pill a second
+    // time to jump back to the top instead of staying put.
+    if (Math.abs(distance) < 1) return
 
-      // Subtract your custom offset (e.g., 100px for the navbar height)
-      const offsetPosition = elementPosition + 270
+    // Adjust this value to control speed (pixels per second)
+    const speed = 2000
+    const duration = (Math.abs(distance) / speed) * 1000
 
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth',
-      })
+    let startTime: number | null = null
+
+    const animation = (currentTime: number) => {
+      if (startTime === null) startTime = currentTime
+      const timeElapsed = currentTime - startTime
+      const progress = Math.min(timeElapsed / duration, 1)
+      window.scrollTo(0, currentPosition + distance * progress)
+      if (timeElapsed < duration) requestAnimationFrame(animation)
     }
 
-    setActive(id)
+    requestAnimationFrame(animation)
   }
 
-  // Custom smooth scroll function with constant speed
+  // Custom smooth scroll function with constant speed (scroll-to-top)
   const smoothScrollToTop = () => {
     const currentPosition = window.scrollY
     const targetPosition = 0
     const distance = targetPosition - currentPosition
+
+    // Already at the top — nothing to animate, and this also avoids the
+    // same divide-by-zero/NaN issue described in animatedScrollTo above.
+    if (Math.abs(distance) < 1) return
 
     // Adjust this value to control speed (pixels per second)
     // Higher = faster, Lower = slower
@@ -243,32 +313,11 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
                 <button
                   key={id}
                   onClick={() => {
-                    if (id === 'about') {
-                      
-                      const aboutSection = document.getElementById('about');
-                      if (aboutSection) {
-                        const currentPosition = window.scrollY;
-                        const targetPosition = Math.min(aboutSection.offsetTop, getMaxScroll());
-                        const distance = targetPosition - currentPosition;
-                        const speed = 2000;
-                        const duration = (Math.abs(distance) / speed) * 1000;
-                        let startTime: any = null;
-      
-                        const animation = (currentTime: any) => {
-                          if (startTime === null) startTime = currentTime;
-                          const timeElapsed = currentTime - startTime;
-                          const progress = Math.min(timeElapsed / duration, 1);
-                          window.scrollTo(0, currentPosition + distance * progress);
-                          if (timeElapsed < duration) requestAnimationFrame(animation);
-                        };
-      
-                        requestAnimationFrame(animation);
-                      }
-
-                      setActive('about')
-                    } else {
-                      scrollTo(id)
-                    }
+                    // All sections scroll the same way: constant-speed
+                    // animation to the section's top.
+                    const target = document.getElementById(id)
+                    if (target) animatedScrollTo(target.offsetTop)
+                    setActive(id)
                   }}
                   onMouseEnter={() => setHoveredPill(id)}
                   onMouseLeave={() => setHoveredPill(null)}
@@ -383,14 +432,14 @@ const styles = {
     cursor: 'pointer',
   } satisfies React.CSSProperties,
 
-  logoIcon: (theme: Theme): React.CSSProperties => ({
-    color: theme === 'cream' ? '#fd0505' : '#7eb8f7',
-    filter:
-      theme === 'cream'
-        ? 'drop-shadow(0 0 12px rgba(214, 167, 122, 0.5))'
-        : 'drop-shadow(0 0 12px rgba(126, 184, 247, 0.5))',
-    transition: 'all 0.35s ease',
-  }),
+  logoIcon: (theme: Theme): React.CSSProperties => {
+    const c = THEME_COLORS[theme]
+    return {
+      color: theme === 'cream' ? '#fd0505' : c.accent,
+      filter: `drop-shadow(0 0 12px rgba(${c.accentRgb}, 0.5))`,
+      transition: 'all 0.35s ease',
+    }
+  },
 
   soundWrapper: {
     position: 'absolute',
@@ -422,23 +471,22 @@ const styles = {
     pointerEvents: show ? 'auto' : 'none',
   }),
 
-  volumeSlider: (theme: Theme): CSSWithVars => ({
-    width: '100px',
-    height: '4px',
-    WebkitAppearance: 'none',
-    appearance: 'none',
-    background:
-      theme === 'cream' ? 'rgba(214, 167, 122, 0.3)' : 'rgba(126,184,247,0.3)',
-    borderRadius: '2px',
-    outline: 'none',
-    transition: 'all 0.3s ease',
-    // Consumed by the .navbar-volume-slider pseudo-element rules in <style>.
-    '--thumb-bg': theme === 'cream' ? '#d6a77a' : '#7eb8f7',
-    '--thumb-shadow':
-      theme === 'cream'
-        ? '0 2px 8px rgba(214,167,122,0.4)'
-        : '0 2px 8px rgba(126,184,247,0.4)',
-  }),
+  volumeSlider: (theme: Theme): CSSWithVars => {
+    const c = THEME_COLORS[theme]
+    return {
+      width: '100px',
+      height: '4px',
+      WebkitAppearance: 'none',
+      appearance: 'none',
+      background: `rgba(${c.accentRgb}, 0.3)`,
+      borderRadius: '2px',
+      outline: 'none',
+      transition: 'all 0.3s ease',
+      // Consumed by the .navbar-volume-slider pseudo-element rules in <style>.
+      '--thumb-bg': c.accent,
+      '--thumb-shadow': `0 2px 8px rgba(${c.accentRgb},0.4)`,
+    }
+  },
 
   navContainer: {
     position: 'relative',
@@ -446,122 +494,109 @@ const styles = {
     justifyContent: 'center',
   } satisfies React.CSSProperties,
 
-  nav: (theme: Theme): React.CSSProperties => ({
-    pointerEvents: 'auto',
+  nav: (theme: Theme): React.CSSProperties => {
+    const c = THEME_COLORS[theme]
+    return {
+      pointerEvents: 'auto',
 
-    display: 'flex',
-    alignItems: 'center',
+      display: 'flex',
+      alignItems: 'center',
 
-    padding: '10px 14px',
-    borderRadius: '999px',
+      padding: '10px 14px',
+      borderRadius: '999px',
 
-    backdropFilter: 'blur(18px) saturate(160%)',
-    WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+      backdropFilter: 'blur(18px) saturate(160%)',
+      WebkitBackdropFilter: 'blur(18px) saturate(160%)',
 
-    background:
-      theme === 'cream' ? 'rgba(244,237,225,0.55)' : 'rgba(10,18,32,0.55)',
+      background: c.bg,
+      border: `1px solid ${c.border}`,
+      boxShadow: c.boxShadow,
 
-    border:
-      theme === 'cream'
-        ? '1px solid rgba(0,0,0,0.06)'
-        : '1px solid rgba(126,184,247,0.15)',
+      transition: 'all 0.35s ease',
+    }
+  },
 
-    boxShadow:
-      theme === 'cream'
-        ? '0 10px 30px rgba(0,0,0,0.08)'
-        : '0 10px 40px rgba(0,0,0,0.4)',
+  energy: (theme: Theme): React.CSSProperties => {
+    const c = THEME_COLORS[theme]
+    return {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: '420px',
+      height: '90px',
 
-    transition: 'all 0.35s ease',
-  }),
+      background: `radial-gradient(circle, rgba(${c.accentRgb},${theme === 'cream' ? 0.25 : 0.22}), transparent 70%)`,
 
-  energy: (theme: Theme): React.CSSProperties => ({
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '420px',
-    height: '90px',
-
-    background:
-      theme === 'cream'
-        ? 'radial-gradient(circle, rgba(214,167,122,0.25), transparent 70%)'
-        : 'radial-gradient(circle, rgba(126,184,247,0.22), transparent 70%)',
-
-    filter: 'blur(22px)',
-    opacity: 0.9,
-    zIndex: -1,
-  }),
+      filter: 'blur(22px)',
+      opacity: 0.9,
+      zIndex: -1,
+    }
+  },
 
   center: {
     display: 'flex',
     gap: '10px',
   } satisfies React.CSSProperties,
 
-  pill: (active: boolean, hovered: boolean, theme: Theme): React.CSSProperties => ({
-    border: 'none',
+  pill: (active: boolean, hovered: boolean, theme: Theme): React.CSSProperties => {
+    const c = THEME_COLORS[theme]
+    return {
+      border: 'none',
 
-    padding: '6px 14px',
-    borderRadius: '999px',
+      padding: '6px 14px',
+      borderRadius: '999px',
 
-    fontSize: '12px',
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
+      fontSize: '12px',
+      letterSpacing: '0.12em',
+      textTransform: 'uppercase',
 
-    fontWeight: 'bold',
+      fontWeight: 'bold',
 
-    transition: 'all 0.25s ease',
+      transition: 'all 0.25s ease',
 
-    color: active ? '#fff' : theme === 'cream' ? '#2a2a2a' : 'rgba(255,255,255,0.65)',
+      color: active ? '#fff' : c.isLight ? '#2a2a2a' : 'rgba(255,255,255,0.65)',
 
-    background: active
-      ? theme === 'cream'
-        ? 'rgba(214,167,122,0.85)'
-        : 'rgba(126,184,247,0.85)'
-      : hovered
+      background: active
+        ? `rgba(${c.accentRgb},0.85)`
+        : hovered
+          ? `rgba(${c.accentRgb},0.5)`
+          : 'transparent',
+
+      boxShadow: active
+        ? `0 6px 18px rgba(${c.accentRgb},0.25)`
+        : hovered
+          ? `0 4px 14px rgba(${c.accentRgb},0.2)`
+          : 'none',
+    }
+  },
+
+  sound: (theme: Theme, on: boolean): React.CSSProperties => {
+    const c = THEME_COLORS[theme]
+    return {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+
+      width: '44px',
+      height: '44px',
+      padding: '0',
+
+      border: `1px solid ${c.border}`,
+      borderRadius: '50%',
+
+      transition: 'all 0.25s ease',
+
+      backdropFilter: 'blur(18px) saturate(160%)',
+      WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+
+      color: on ? '#fff' : c.isLight ? '#2a2a2a' : 'rgba(255,255,255,0.6)',
+
+      background: on
         ? theme === 'cream'
-          ? 'rgba(214,167,122,0.5)'
-          : 'rgba(126,184,247,0.5)'
-        : 'transparent',
-
-    boxShadow: active
-      ? theme === 'cream'
-        ? '0 6px 18px rgba(214,167,122,0.25)'
-        : '0 6px 18px rgba(126,184,247,0.25)'
-      : hovered
-        ? theme === 'cream'
-          ? '0 4px 14px rgba(214,167,122,0.2)'
-          : '0 4px 14px rgba(126,184,247,0.2)'
-        : 'none',
-  }),
-
-  sound: (theme: Theme, on: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    width: '44px',
-    height: '44px',
-    padding: '0',
-
-    border:
-      theme === 'cream'
-        ? '1px solid rgba(0,0,0,0.06)'
-        : '1px solid rgba(126,184,247,0.15)',
-    borderRadius: '50%',
-
-    transition: 'all 0.25s ease',
-
-    backdropFilter: 'blur(18px) saturate(160%)',
-    WebkitBackdropFilter: 'blur(18px) saturate(160%)',
-
-    color: on ? '#fff' : theme === 'cream' ? '#2a2a2a' : 'rgba(255,255,255,0.6)',
-
-    background: on
-      ? theme === 'cream'
-        ? 'rgba(214, 122, 122, 0.85)'
-        : 'rgba(126,184,247,0.85)'
-      : theme === 'cream'
-        ? 'rgba(244,237,225,0.55)'
-        : 'rgba(10,18,32,0.55)',
-  }),
+          ? 'rgba(214, 122, 122, 0.85)' // kept as the original warm "mute" red for the cream theme
+          : `rgba(${c.accentRgb},0.85)`
+        : c.bg,
+    }
+  },
 }

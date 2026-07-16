@@ -3,7 +3,6 @@ import { useFrame, useGraph } from '@react-three/fiber'
 import { useGLTF, useAnimations, useFBX, useTexture, Sparkles, Billboard } from '@react-three/drei'
 import { SkeletonUtils } from 'three-stdlib'
 import * as THREE from 'three'
-import { useControls } from 'leva'
 import { TL, ABOUT_UNPIN, useViewportUnit, scrollScreens, avatarPhase } from './Scrolltimeline'
 import type { AvatarPhaseName } from './Scrolltimeline'
 import { SYSTEM_TECHS, techStore } from './TechStore'
@@ -16,7 +15,6 @@ type AvatarProps = {
 
 // ─── Tech stack that orbits the stasis pod, sun-and-planets style ──────────
 type TechIcon = { name: string; tex: string; size?: number; focusScale?: number }
-
 
 const PLANET_SIZE_SCALE = 0.7
 
@@ -40,7 +38,7 @@ const FOCUS_ORBIT_FACTOR = 0.15
 
 // ─── Stasis Pod defaults ────────────────────────────────────────────────────
 const POD_DEFAULTS = {
-  x: -1.2,
+  x: 2.5,
   y: -6.5,
   z: 42.1,
   scale: 7.1,
@@ -78,13 +76,11 @@ export const MOBILE = {
   topNdc: 0.67,     // NDC y where the pod's top edge sits (1 = very top)
 }
 
-
 const SPARKLES = {
   desktopCount: 5000,
   smallCount: 4000,   //below SMALL_SCREEN.breakpoint (2200px)
   mobileCount: 1500,  // at or below MOBILE.breakpoint (1000px)
 }
-
 
 function getSparkleCount(): number {
   if (typeof window === 'undefined') return SPARKLES.desktopCount
@@ -245,6 +241,12 @@ export function Avatar(props: AvatarProps) {
   const snappedToCamera = useRef(false)
   const isAtTop = useRef(true)
 
+  // GPU warm-up window (see podRef.current.visible below) — the pod, its
+  // Sparkles, and the 8 tech-orbit logo textures otherwise get their first
+  // real draw call at the exact scroll position where the avatar jumps in,
+  // which is what caused the one-time stutter.
+  const mountTimeRef = useRef(Date.now())
+
   const podWorldTarget = useRef(new THREE.Vector3())
   const probeA = useRef(new THREE.Vector3())
   const probeB = useRef(new THREE.Vector3())
@@ -252,57 +254,31 @@ export function Avatar(props: AvatarProps) {
 
   const [sparkleCount, setSparkleCount] = useState(getSparkleCount)
 
-  useEffect(() => {
-    const onResize = () => {
-      smallTargetRef.current = window.innerWidth < SMALL_SCREEN.breakpoint ? 1 : 0
-      mobileTargetRef.current = window.innerWidth <= MOBILE.breakpoint ? 1 : 0
-      setSparkleCount(getSparkleCount())
-    }
-    onResize()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+  // ── Layout Constants ──────────────────────────────────────────────────────
+  const modelScale = 1
+  const podX = POD_DEFAULTS.x
+  const podY = POD_DEFAULTS.y
+  const podZ = POD_DEFAULTS.z
+  const podScale = POD_DEFAULTS.scale
+  const podRotY = POD_DEFAULTS.rotY
+  const podLocked = false
 
-  // ── Responsive scaling ────────────────────────────────────────────────────
-  const { modelScale } = useControls('Responsive Scaling', {
-    modelScale: { value: 1, min: 0.5, max: 2, step: 0.01 },
-  })
+  const inPodScale = IN_POD_DEFAULTS.scale
+  const inPodX = IN_POD_DEFAULTS.x
+  const inPodY = IN_POD_DEFAULTS.y
+  const inPodZ = IN_POD_DEFAULTS.z
+  const inPodRotX = IN_POD_DEFAULTS.rotX
+  const inPodRotY = IN_POD_DEFAULTS.rotY
+  const inPodRotZ = IN_POD_DEFAULTS.rotZ
 
-  // ── Stasis Pod controls ──────────────────────────────────────────────────
-  const { podX, podY, podZ, podScale, podRotY, podLocked } = useControls('Stasis Pod', {
-    podX: { value: POD_DEFAULTS.x, min: -100, max: 100, step: 0.1 },
-    podY: { value: POD_DEFAULTS.y, min: -100, max: 100, step: 0.1 },
-    podZ: { value: POD_DEFAULTS.z, min: -200, max: 200, step: 0.1 },
-    podScale: { value: POD_DEFAULTS.scale, min: 0.1, max: 50, step: 0.1 },
-    podRotY: { value: POD_DEFAULTS.rotY, min: -Math.PI, max: Math.PI, step: 0.01 },
-    podLocked: { value: false, label: 'Lock pod visible (tuning mode)' },
-  })
+  const smallXOffset = SMALL_SCREEN.xOffset
+  const smallYOffset = SMALL_SCREEN.yOffset
+  const smallHeightFrac = SMALL_SCREEN.heightFrac
 
-  // ── Avatar-in-pod controls (position, scale, rotation) ──────────────────
-  const { inPodScale, inPodX, inPodY, inPodZ, inPodRotX, inPodRotY, inPodRotZ } = useControls('Avatar in Pod', {
-    inPodScale: { value: IN_POD_DEFAULTS.scale, min: 0.05, max: 1, step: 0.01 },
-    inPodX: { value: IN_POD_DEFAULTS.x, min: -30, max: 30, step: 0.1 },
-    inPodY: { value: IN_POD_DEFAULTS.y, min: -30, max: 30, step: 0.1 },
-    inPodZ: { value: IN_POD_DEFAULTS.z, min: -30, max: 30, step: 0.1 },
-    inPodRotX: { value: IN_POD_DEFAULTS.rotX, min: -Math.PI, max: Math.PI, step: 0.01 },
-    inPodRotY: { value: IN_POD_DEFAULTS.rotY, min: -Math.PI, max: Math.PI, step: 0.01 },
-    inPodRotZ: { value: IN_POD_DEFAULTS.rotZ, min: -Math.PI, max: Math.PI, step: 0.01 },
-  })
-
-  // ── Small-screen pod controls ────────────────────────────────────────────
-  const { smallXOffset, smallYOffset, smallHeightFrac } = useControls('Pod (below 2000px)', {
-    smallXOffset: { value: SMALL_SCREEN.xOffset, min: -60, max: 60, step: 0.1 },
-    smallYOffset: { value: SMALL_SCREEN.yOffset, min: -60, max: 60, step: 0.1 },
-    smallHeightFrac: { value: SMALL_SCREEN.heightFrac, min: 0.2, max: 0.85, step: 0.01 },
-  })
-
-  // ── Mobile stacked-layout pod controls (≤1000px) ─────────────────────────
-  const { mobileXOffset, mobileYOffset, mobileHeightFrac, mobileTopNdc } = useControls('Pod (below 1000px)', {
-    mobileXOffset: { value: MOBILE.xOffset, min: -60, max: 60, step: 0.1 },
-    mobileYOffset: { value: MOBILE.yOffset, min: -60, max: 60, step: 0.1 },
-    mobileHeightFrac: { value: MOBILE.heightFrac, min: 0.15, max: 0.6, step: 0.01 },
-    mobileTopNdc: { value: MOBILE.topNdc, min: 0.5, max: 1, step: 0.01 },
-  })
+  const mobileXOffset = MOBILE.xOffset
+  const mobileYOffset = MOBILE.yOffset
+  const mobileHeightFrac = MOBILE.heightFrac
+  const mobileTopNdc = MOBILE.topNdc
 
   // ── Small-screen / mobile state ───────────────────────────────────────────
   const smallTargetRef = useRef(
@@ -318,6 +294,7 @@ export function Avatar(props: AvatarProps) {
     const onResize = () => {
       smallTargetRef.current = window.innerWidth < SMALL_SCREEN.breakpoint ? 1 : 0
       mobileTargetRef.current = window.innerWidth <= MOBILE.breakpoint ? 1 : 0
+      setSparkleCount(getSparkleCount())
     }
     onResize()
     window.addEventListener('resize', onResize)
@@ -654,7 +631,23 @@ export function Avatar(props: AvatarProps) {
           targetWorldY = effPodY + (s - ABOUT_UNPIN) * worldPerScreen
         }
 
-        podRef.current.visible = s > riseStart - 0.1 && s < ABOUT_UNPIN + 1.5
+        // Setting `.visible = false` makes Three.js skip the draw call
+        // entirely — so the pod's materials, its Sparkles, and the 8
+        // tech-orbit logo textures were never actually uploaded to the
+        // GPU until the very first time this flipped true, which happens
+        // right as the avatar jumps in. That first real draw call is what
+        // caused the one-time FPS drop.
+        //
+        // Fix: force it visible for a brief window right after mount so
+        // it gets a few genuine warm-up frames while parked at its
+        // already-computed off-screen position (frustumCulled=false on
+        // the pod meshes means that draw call is cheap even off-screen).
+        // After the window, fall back to the original distance-based
+        // hiding so there's no lasting extra draw cost for the rest of
+        // the scroll.
+        const warmingUp = Date.now() - mountTimeRef.current < 1200
+        podRef.current.visible =
+          warmingUp || (s > riseStart - 0.1 && s < ABOUT_UNPIN + 1.5)
       }
 
       podWorldTarget.current.set(effPodX, targetWorldY, podZ)

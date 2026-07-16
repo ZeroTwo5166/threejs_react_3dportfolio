@@ -9,6 +9,8 @@ import { IntroText } from './components/Introtext.js'
 import { About } from './components/About.js'
 import { Navbar } from './components/Navbar.js'
 import { Projects } from './components/Projects.js'
+import { Preloader } from './components/Preloader.js'
+import { Contact } from './components/Contact.js'
 
 
 export function getMaxScroll() {
@@ -49,6 +51,8 @@ export default function App() {
   return (
     <div id="page" ref={pageRef}>
 
+      <Preloader />
+
       <CustomCursor />
       <Navbar />
 
@@ -57,6 +61,7 @@ export default function App() {
         {/* eventSource routes DOM clicks back into the 3D scene */}
         <Canvas
           eventSource={pageRef as React.RefObject<HTMLElement>}
+          eventPrefix="client"
           shadows
           camera={{ position: [0, 30, 150], fov: 25 }}
         >
@@ -144,6 +149,7 @@ export default function App() {
         </div>
 
         <Projects />
+        <Contact />
       </main>
     </div>
   )

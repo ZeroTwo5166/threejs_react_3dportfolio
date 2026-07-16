@@ -3,7 +3,6 @@ import { techStore, type SystemLabel } from './TechStore'
 import { TL } from './Scrolltimeline'
 import { MOBILE } from './Avatar'
 import { BlackHole } from './Blackhole'
-import { useControls } from 'leva'
 
 type SystemRow = {
   label: SystemLabel
@@ -23,6 +22,14 @@ const SYSTEMS: SystemRow[] = [
 // screens; the pod's enter/exit lockstep in Avatar.tsx depends on this
 // exact value, so it must never be edited here independently.
 const ABOUT_HEIGHT_VH = TL.ABOUT_HEIGHT_SCREENS * 100
+
+// ── Small-screen scaling (matches Avatar.tsx's SMALL_SCREEN.breakpoint) ───
+// Below this width the pod itself starts shrinking/repositioning (see
+// SMALL_SCREEN in Avatar.tsx). The panel scales down slightly in lockstep
+// so neither element dominates the shrinking viewport. Keep this value in
+// sync with Avatar.tsx's SMALL_SCREEN.breakpoint if that ever changes.
+const SMALL_SCREEN_BREAKPOINT = 2200
+const SMALL_SCREEN_ABOUT_SCALE = 0.85
 
 // ── Mobile stacked-layout sizing ─────────────────────────────────────────
 // Panel scale applied by the ≤1000px media query below. Referenced in TS
@@ -54,10 +61,8 @@ export const About = () => {
   // that Avatar.tsx reads inside the Canvas.
   const selected = useSyncExternalStore(techStore.subscribe, techStore.getSelected)
 
-  // ── Responsive scaling control ──
-  const { aboutScale } = useControls('Responsive Scaling', {
-    aboutScale: { value: 1, min: 0.5, max: 2, step: 0.01 },
-  })
+  // ── Responsive scaling ──
+  const aboutScale = 1
 
   useEffect(() => {
     const el = panelRef.current
@@ -133,7 +138,7 @@ export const About = () => {
       window.removeEventListener('resize', check)
       window.removeEventListener('orientationchange', check)
     }
-  }, [aboutScale])
+  }, [])
 
   return (
     <div
@@ -155,8 +160,8 @@ export const About = () => {
           below, no overlap. */}
       <div className="about-sticky">
         {/* ─── Scaling wrapper for the About panel ───
-            Leva's aboutScale multiplies with --about-responsive-scale,
-            which the mobile media query drops below 1. transform-origin
+            aboutScale multiplies with --about-responsive-scale,
+            which the media queries below drop below 1. transform-origin
             is also a variable so the shrunken panel stays pinned to the
             bottom edge on mobile instead of floating up. */}
         <div
@@ -377,10 +382,10 @@ export const About = () => {
 
       <style>{`
         /* ── Static sizing tokens ──────────────────────────────────────────
-           All values are now fixed; the panel no longer scales with the viewport. */
+            All values are now fixed; the panel no longer scales with the viewport. */
         .about-panel {
-          --about-panel-width: 27rem;
-          --about-panel-max-width: 27rem;
+          --about-panel-width: 29rem;
+          --about-panel-max-width: 29rem;
           --about-panel-padding-y: 2.1rem;
           --about-panel-padding-x: 1.9rem;
           --about-panel-margin-top: 10vh;
@@ -419,11 +424,23 @@ export const About = () => {
           display: none;
         }
 
+        /* ── Small-screen scale-down (≤2200px) ────────────────────────────
+           Matches the width at which Avatar.tsx starts shrinking/repositioning
+           the pod (SMALL_SCREEN.breakpoint). The panel scales down slightly
+           in lockstep so it doesn't dominate a shrinking pod/viewport.
+           Must come BEFORE the mobile (≤1000px) block below so mobile's
+           stronger scale-down wins at narrower widths. */
+        @media (max-width: ${SMALL_SCREEN_BREAKPOINT}px) {
+          #about {
+            --about-responsive-scale: ${SMALL_SCREEN_ABOUT_SCALE};
+          }
+        }
+
         /* ── Stacked mobile layout (≤1000px) ──────────────────────────────
            Avatar.tsx shrinks the stasis pod and anchors it to the TOP of
            the viewport at this same breakpoint (MOBILE.breakpoint = 1000).
-           Here the panel scales down and anchors BOTTOM-CENTER, so the
-           pod and the content stack vertically instead of overlapping. */
+           Here the panel scales down further and anchors BOTTOM-CENTER, so
+           the pod and the content stack vertically instead of overlapping. */
         @media (max-width: ${MOBILE.breakpoint}px) {
           #about {
             --about-responsive-scale: ${MOBILE_ABOUT_SCALE};
