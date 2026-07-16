@@ -9,6 +9,10 @@ const ACCENT_SOFT = `rgba(${ACCENT_RGB}, 0.08)`
 const BG = '#0a1210' // near-black with a teal tint (Projects does the same in violet)
 
 // ─── Your real coordinates — edit these ────────────────────────────────────
+// EMAIL is only used for DISPLAY (the channel row + copy button). Real
+// delivery goes through POST /api/contact → your Express server → Resend;
+// the destination inbox lives in the server's CONTACT_TO env variable,
+// never in this bundle.
 const EMAIL = 'subarna.gurung23@gmail.com' // TODO: set your real email
 const CHANNELS: Array<{
   label: string
@@ -35,9 +39,9 @@ const DELETE_SPEED_MS = 34    // per character while deleting
 const HOLD_FULL_MS = 2100     // pause with the full phrase on screen
 const HOLD_EMPTY_MS = 420     // pause before the next phrase starts
 
-// Handshake duration before the mail client opens (ms). Skipped when the
-// visitor prefers reduced motion.
-const HANDSHAKE_MS = 1100
+// Minimum time the handshake animation plays, even if the server answers
+// faster — so the transmission moment never feels like a flicker.
+const HANDSHAKE_MIN_MS = 1100
 
 type CaretMode = 'solid' | 'blink'
 
@@ -146,13 +150,15 @@ function useScramble(text: string, trigger: boolean, reduced: boolean) {
 
 // ─── Boot log — typed once, character by character ─────────────────────────
 const BOOT_LINES = [
-  '> boot uplink_console v2.6',
-  '> bridge: mailto ......... OK',
+  '> boot uplink_console v2.7',
+  '> bridge: /api/contact ... OK',
   '> channel status: OPEN',
 ]
 
-type TxState = 'idle' | 'sending' | 'sent'
+type TxState = 'idle' | 'sending' | 'sent' | 'error'
 type Packet = { id: number; dx: number; dy: number; delay: number }
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export const Contact = () => {
   const sectionRef = useRef<HTMLElement>(null)
@@ -167,6 +173,7 @@ export const Contact = () => {
   const [name, setName] = useState('')
   const [from, setFrom] = useState('')
   const [payload, setPayload] = useState('')
+  const [honeypot, setHoneypot] = useState('') // invisible bot trap
   const [tx, setTx] = useState<TxState>('idle')
   const [copied, setCopied] = useState(false)
 
@@ -181,7 +188,7 @@ export const Contact = () => {
   // typing never re-renders the canvas loop.
   const energyRef = useRef(0)
 
-  const txTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mountedRef = useRef(true)
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bootTimers = useRef<ReturnType<typeof setTimeout>[]>([])
   const packetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -325,7 +332,7 @@ export const Contact = () => {
 
   useEffect(
     () => () => {
-      if (txTimer.current) clearTimeout(txTimer.current)
+      mountedRef.current = false
       if (copyTimer.current) clearTimeout(copyTimer.current)
       if (packetTimer.current) clearTimeout(packetTimer.current)
       bootTimers.current.forEach(clearTimeout)
@@ -338,7 +345,9 @@ export const Contact = () => {
     [payload]
   )
 
-  const canTransmit = payload.trim().length > 0 && tx !== 'sending'
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from.trim())
+  const canTransmit =
+    payload.trim().length > 0 && emailLooksValid && tx !== 'sending'
 
   // ── Console: cursor-tracked glow + 3D tilt ────────────────────────────────
   const handleConsoleMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -366,49 +375,58 @@ export const Contact = () => {
     tiltEl.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg)'
   }
 
-  const openMailClient = () => {
-    const subject = encodeURIComponent(
-      `[uplink] ${name.trim() || 'New transmission'}`
-    )
-    const bodyLines = [
-      payload.trim(),
-      '',
-      '—',
-      name.trim() ? `from: ${name.trim()}` : null,
-      from.trim() ? `return_address: ${from.trim()}` : null,
-    ].filter((l): l is string => l !== null)
-    const body = encodeURIComponent(bodyLines.join('\n'))
-    window.location.href = `mailto:${EMAIL}?subject=${subject}&body=${body}`
-  }
-
-  // ── Transmit: packet burst + handshake, then hand off to the mail app ────
-  const transmit = () => {
+  // ── Transmit: POST to /api/contact (your Express + Resend server) ────────
+  // The handshake animation is real: it's held open for the actual network
+  // round-trip, padded up to HANDSHAKE_MIN_MS so a fast reply never feels
+  // like a flicker. The outcome (sent vs error) reflects the real response.
+  const transmit = async () => {
     if (!canTransmit) return
 
-    if (reduced) {
-      openMailClient()
-      setTx('sent')
-      return
+    if (!reduced) {
+      // Spawn a burst of data packets flying up out of the button.
+      const burst: Packet[] = Array.from({ length: 14 }, () => ({
+        id: packetId.current++,
+        dx: (Math.random() - 0.5) * 140,
+        dy: -(50 + Math.random() * 90),
+        delay: Math.random() * 250,
+      }))
+      setPackets(burst)
+      if (packetTimer.current) clearTimeout(packetTimer.current)
+      packetTimer.current = setTimeout(() => setPackets([]), 1400)
+
+      energyRef.current = 2.5 // slam the waveform
     }
 
-    // Spawn a burst of data packets flying up out of the button.
-    const burst: Packet[] = Array.from({ length: 14 }, () => ({
-      id: packetId.current++,
-      dx: (Math.random() - 0.5) * 140,
-      dy: -(50 + Math.random() * 90),
-      delay: Math.random() * 250,
-    }))
-    setPackets(burst)
-    if (packetTimer.current) clearTimeout(packetTimer.current)
-    packetTimer.current = setTimeout(() => setPackets([]), 1400)
-
-    energyRef.current = 2.5 // slam the waveform
-
     setTx('sending')
-    txTimer.current = setTimeout(() => {
-      openMailClient()
-      setTx('sent')
-    }, HANDSHAKE_MS)
+
+    const request = fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name.trim(),
+        from: from.trim(),
+        payload: payload.trim(),
+        website: honeypot, // invisible field — non-empty means "bot"
+      }),
+    })
+
+    try {
+      const [res] = await Promise.all([
+        request,
+        reduced ? Promise.resolve() : delay(HANDSHAKE_MIN_MS),
+      ])
+
+      if (!mountedRef.current) return
+
+      if (res.ok) {
+        setTx('sent')
+        setPayload('') // the message left the ship — clear the buffer
+      } else {
+        setTx('error')
+      }
+    } catch {
+      if (mountedRef.current) setTx('error')
+    }
   }
 
   const copyEmail = async () => {
@@ -420,6 +438,24 @@ export const Contact = () => {
     } catch {
       // Clipboard unavailable — the address is visible in the channel list.
     }
+  }
+
+  const statusLine: Record<TxState, string> = {
+    idle: '// transmit sends straight to my inbox. no tracking, nothing stored.',
+    sending: '// negotiating handshake…',
+    sent: '// transmission delivered. expect a reply within 24h.',
+    error: `// uplink failed — retry, or route around it: ${EMAIL}`,
+  }
+
+  const buttonLabel: Record<TxState, React.ReactNode> = {
+    idle: 'transmit_message ↗',
+    sending: (
+      <>
+        establishing_link<span className="tx-dots" />
+      </>
+    ),
+    sent: '✓ transmit_another',
+    error: '↺ retry_transmission',
   }
 
   return (
@@ -496,7 +532,7 @@ export const Contact = () => {
               letterSpacing: '0.05em',
             }}
           >
-            channel: OPEN · uplink: mailto · response: &lt;24h
+            channel: OPEN · uplink: /api/contact · response: &lt;24h
           </span>
         </div>
 
@@ -545,8 +581,8 @@ export const Contact = () => {
               }}
             >
               Have a project, a role, or a question about how any of this was
-              built? Pick a channel — the console on the right drafts the
-              message for you.
+              built? Pick a channel — or use the console. It delivers straight
+              to my inbox.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
@@ -647,6 +683,7 @@ export const Contact = () => {
                     onChange={(e) => { setFrom(e.target.value); bumpEnergy() }}
                     placeholder="you@domain.com"
                     autoComplete="email"
+                    required
                     disabled={tx === 'sending'}
                   />
                 </label>
@@ -659,6 +696,19 @@ export const Contact = () => {
                     placeholder="type your message…"
                     rows={6}
                     disabled={tx === 'sending'}
+                  />
+                </label>
+
+                {/* Honeypot — hidden from humans (and screen readers), bots
+                    autofill it and get silently dropped server-side. */}
+                <label className="hp-field" aria-hidden="true">
+                  website
+                  <input
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
                   />
                 </label>
 
@@ -687,24 +737,17 @@ export const Contact = () => {
                       onClick={transmit}
                       disabled={!canTransmit}
                     >
-                      {tx === 'sending' ? (
-                        <>establishing_link<span className="tx-dots" /></>
-                      ) : tx === 'sent' ? (
-                        '↺ transmit_again'
-                      ) : (
-                        'transmit_message ↗'
-                      )}
+                      {buttonLabel[tx]}
                       <span className="tx-progress" aria-hidden="true" />
                     </button>
                   </span>
                 </div>
 
-                <p className="console-status" role="status">
-                  {tx === 'sent'
-                    ? '// transmission handed to your mail client — press send there to complete.'
-                    : tx === 'sending'
-                      ? '// negotiating handshake…'
-                      : '// transmit opens your mail app with everything pre-filled. no data is stored here.'}
+                <p
+                  className={`console-status ${tx === 'error' ? 'is-error' : ''} ${tx === 'sent' ? 'is-sent' : ''}`}
+                  role="status"
+                >
+                  {statusLine[tx]}
                 </p>
               </div>
             </div>
@@ -1071,6 +1114,18 @@ export const Contact = () => {
         .field input:disabled,
         .field textarea:disabled { opacity: 0.55; }
 
+        /* Honeypot — visually removed, still in the accessibility-hidden DOM
+           for bots to find. Do NOT use display:none (some bots skip those). */
+        .hp-field {
+          position: absolute;
+          left: -9999px;
+          top: 0;
+          width: 1px; height: 1px;
+          overflow: hidden;
+          opacity: 0;
+          pointer-events: none;
+        }
+
         .console-footer {
           display: flex; align-items: center; justify-content: space-between;
           flex-wrap: wrap; gap: 1rem;
@@ -1141,7 +1196,7 @@ export const Contact = () => {
           transform-origin: left;
         }
         .transmit-btn.is-sending .tx-progress {
-          animation: tx-fill ${HANDSHAKE_MS}ms linear forwards;
+          animation: tx-fill ${HANDSHAKE_MIN_MS}ms linear forwards;
         }
         @keyframes tx-fill { to { transform: scaleX(1); } }
 
@@ -1164,7 +1219,10 @@ export const Contact = () => {
           color: #5a7068;
           font-family: 'JetBrains Mono', monospace;
           position: relative; z-index: 1;
+          transition: color 0.25s ease;
         }
+        .console-status.is-sent { color: ${ACCENT}; }
+        .console-status.is-error { color: #ff8a7a; }
 
         /* ── Mobile ──────────────────────────────────────────────────────
            Tightens spacing/type and gives the console's own internals more
