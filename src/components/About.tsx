@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { techStore, type SystemLabel } from './TechStore'
 import { TL } from './Scrolltimeline'
 import { MOBILE } from './Avatar'

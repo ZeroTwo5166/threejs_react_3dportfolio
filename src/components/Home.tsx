@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useGLTF, OrbitControls } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three'
 import { Avatar } from './Avatar'
 import { TL, useViewportUnit, scrollScreens, progress } from './Scrolltimeline'
@@ -198,7 +198,7 @@ export function Home() {
         return () => window.removeEventListener('resize', onResize)
     }, [])
 
-    useFrame((state, delta) => {
+    useFrame((_, delta) => {
         const s = scrollScreens(vhPx)
 
         // ── Responsive scale + recenter (smooth) ───────────────────────────────

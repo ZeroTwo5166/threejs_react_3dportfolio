@@ -188,7 +188,7 @@ function TechOrbit({ planets, autoOrbit, speed, tilt }: TechOrbitProps) {
   const spinRef = useRef<THREE.Group>(null)
   const currentSpeed = useRef(speed)
 
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     if (autoOrbit && spinRef.current) {
       const focused = techStore.getSelected() !== null
       const targetSpeed = focused ? speed * FOCUS_ORBIT_FACTOR : speed

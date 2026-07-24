@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { Home } from './components/Home.jsx'
 
 import './App.css'
-import { runwayHeightVh, TL } from './components/Scrolltimeline.js'
+import { runwayHeightVh } from './components/Scrolltimeline.js'
 import { CustomCursor } from './components/CustomCursor.js'
 import { IntroText } from './components/Introtext.js'
 import { About } from './components/About.js'
