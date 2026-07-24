@@ -306,7 +306,7 @@ export function Avatar(props: AvatarProps) {
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
   const { nodes } = useGraph(clone)
 
-  const { scene: podScene } = useGLTF('models/transparentStasisPod.glb')
+  const { scene: podScene } = useGLTF('models/transparentStasisPod.compressed.glb')
   const podClone = useMemo(() => {
     const cloned = SkeletonUtils.clone(podScene)
     cloned.traverse((child) => {
@@ -793,4 +793,4 @@ export function Avatar(props: AvatarProps) {
 }
 
 useGLTF.preload('models/Avatar-transformed.glb')
-useGLTF.preload('models/transparentStasisPod.glb')
+useGLTF.preload('models/transparentStasisPod.compressed.glb')

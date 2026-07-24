@@ -24,10 +24,10 @@ export function ScifiDesk(props: ModelProps) {
 useGLTF.preload('models/scifiDesk.glb')
 
 export function ScifiChair(props: ModelProps) {
-    const { scene } = useGLTF('models/ScifiChair.glb')
+    const { scene } = useGLTF('models/ScifiChair.compressed.glb')
     return <primitive object={scene} {...props} />
 }
-useGLTF.preload('models/ScifiChair.glb')
+useGLTF.preload('models/ScifiChair.compressed.glb')
 
 export function Monalisa(props: ModelProps) {
     const { scene } = useGLTF('models/Monalisa.glb')
@@ -36,16 +36,16 @@ export function Monalisa(props: ModelProps) {
 useGLTF.preload('models/Monalisa.glb')
 
 export function RoomTable(props: ModelProps) {
-    const { scene } = useGLTF('models/Table.glb')
+    const { scene } = useGLTF('models/Table.compressed.glb')
     return <primitive object={scene} {...props} />
 }
-useGLTF.preload('models/Table.glb')
+useGLTF.preload('models/Table.compressed.glb')
 
 export function Goku(props: ModelProps) {
-    const { scene } = useGLTF('models/Goku.glb')
+    const { scene } = useGLTF('models/Goku.compressed.glb')
     return <primitive object={scene} {...props} />
 }
-useGLTF.preload('models/Goku.glb')
+useGLTF.preload('models/Goku.compressed.glb')
 
 // ── Scene layout (old Leva defaults, hardcoded) ─────────────────────────────
 

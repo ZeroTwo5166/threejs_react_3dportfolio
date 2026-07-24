@@ -19,6 +19,19 @@ export function getMaxScroll() {
   return Math.max(0, doc.scrollHeight - window.innerHeight)
 }
 
+// Touch/coarse-pointer devices (phones, most tablets) are the ones with the
+// tightest GPU memory ceilings — mobile Safari in particular will kill the
+// tab outright ("A problem repeatedly occurred") rather than degrade
+// gracefully. Shadow maps and a high devicePixelRatio are two of the
+// biggest, easiest-to-cut costs, so we detect once on mount and scale the
+// Canvas back accordingly. Using `pointer: coarse` (not just a width
+// breakpoint) so a narrow desktop browser window doesn't get penalized —
+// same pattern CustomCursor.tsx already uses for `pointer: fine`.
+function isLowPowerDevice(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(pointer: coarse)').matches
+}
+
 export default function App() {
   const [titleIndex, setTitleIndex] = useState(0);
   const titles = [
@@ -29,6 +42,10 @@ export default function App() {
 
   // REF FOR ROUTING CLICKS INTO THE CANVAS
   const pageRef = useRef<HTMLDivElement>(null);
+
+  // Computed once on mount (not SSR'd, so no hydration concern) — see
+  // isLowPowerDevice() above.
+  const [lowPower] = useState(isLowPowerDevice);
 
 
   useEffect(() => {
@@ -62,7 +79,8 @@ export default function App() {
         <Canvas
           eventSource={pageRef as React.RefObject<HTMLElement>}
           eventPrefix="client"
-          shadows
+          shadows={!lowPower}
+          dpr={lowPower ? [1, 1.5] : [1, 2]}
           camera={{ position: [0, 30, 150], fov: 25 }}
         >
           <Suspense fallback={null}>
