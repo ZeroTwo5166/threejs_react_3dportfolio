@@ -36,106 +36,60 @@ body {
 #about {
   overflow-x: hidden;
   color: #e8ecf8;
+  position: relative;
   background-color: #04060f;
+
+  /* Base deep-space gradient */
   background-image:
-    /* ── vignette (1) ── */
-    radial-gradient(ellipse 150% 115% at 50% 45%, transparent 55%, rgba(1, 2, 8, 0.55) 100%),
-
-    /* ── starfield: 8 repeating tiles, prime sizes so no visible grid (2–9) ── */
-    radial-gradient(2.2px 2.2px at 22% 31%, #fff 45%, transparent),
-    radial-gradient(1.4px 1.4px at 71% 12%, rgba(255, 255, 255, 0.9) 45%, transparent),
-    radial-gradient(1px 1px at 44% 68%, rgba(255, 255, 255, 0.7) 45%, transparent),
-    radial-gradient(1.8px 1.8px at 86% 54%, rgba(255, 246, 228, 0.95) 45%, transparent),
-    radial-gradient(1.2px 1.2px at 9% 78%, rgba(205, 222, 255, 0.85) 45%, transparent),
-    radial-gradient(2px 2px at 58% 89%, #fff 45%, transparent),
-    radial-gradient(1px 1px at 33% 8%, rgba(255, 255, 255, 0.6) 45%, transparent),
-    radial-gradient(1.5px 1.5px at 93% 83%, rgba(255, 235, 215, 0.85) 45%, transparent),
-
-    /* ── Galaxy 1: violet spiral, top-left (10–15) ── */
-    radial-gradient(circle 2.5px at 13% 18%, #fff 40%, transparent),
-    radial-gradient(ellipse 28px 11px at 13% 18%, rgba(255, 245, 232, 0.9), transparent 70%),
-    radial-gradient(ellipse 75px 26px at 13% 18%, rgba(190, 150, 255, 0.55), transparent 70%),
-    radial-gradient(ellipse 145px 48px at 13% 18%, rgba(125, 92, 240, 0.25), transparent 75%),
-    radial-gradient(ellipse 60px 16px at 14.7% 19.4%, rgba(205, 175, 255, 0.22), transparent 70%),
-    radial-gradient(ellipse 60px 16px at 11.3% 16.6%, rgba(205, 175, 255, 0.22), transparent 70%),
-
-    /* ── Galaxy 2: cyan, edge-on with dark dust lane, top-right (16–20) ── */
-    radial-gradient(circle 2px at 85% 12%, #fff 40%, transparent),
-    radial-gradient(ellipse 36px 7px at 85% 12%, rgba(238, 251, 255, 0.85), transparent 70%),
-    radial-gradient(ellipse 115px 16px at 85% 12%, rgba(115, 212, 255, 0.48), transparent 70%),
-    radial-gradient(ellipse 200px 30px at 85% 12%, rgba(60, 145, 235, 0.18), transparent 78%),
-    radial-gradient(ellipse 150px 4px at 85% 12.3%, rgba(8, 10, 22, 0.6), transparent 80%),
-
-    /* ── Galaxy 3: magenta spiral, mid-right (21–24) ── */
-    radial-gradient(circle 2.5px at 76% 55%, #fff 40%, transparent),
-    radial-gradient(ellipse 32px 13px at 76% 55%, rgba(255, 238, 247, 0.8), transparent 70%),
-    radial-gradient(ellipse 90px 35px at 76% 55%, rgba(255, 135, 218, 0.4), transparent 72%),
-    radial-gradient(ellipse 165px 64px at 76% 55%, rgba(205, 85, 185, 0.16), transparent 78%),
-
-    /* ── Galaxy 4: warm elliptical, bottom-left (25–27) ── */
-    radial-gradient(circle 2px at 20% 82%, #fff 40%, transparent),
-    radial-gradient(ellipse 44px 28px at 20% 82%, rgba(255, 226, 172, 0.45), transparent 70%),
-    radial-gradient(ellipse 115px 72px at 20% 82%, rgba(232, 172, 92, 0.16), transparent 78%),
-
-    /* ── Galaxy 5: small blue spiral, upper-centre (28–29) ── */
-    radial-gradient(circle 1.6px at 52% 34%, #fff 40%, transparent),
-    radial-gradient(ellipse 46px 15px at 52% 34%, rgba(165, 190, 255, 0.4), transparent 70%),
-
-    /* ── distant background galaxies: tiny faint smudges (30–35) ── */
-    radial-gradient(ellipse 26px 9px at 40% 10%, rgba(190, 200, 255, 0.28), transparent 70%),
-    radial-gradient(ellipse 20px 7px at 63% 24%, rgba(255, 205, 235, 0.24), transparent 70%),
-    radial-gradient(ellipse 30px 11px at 32% 45%, rgba(170, 215, 255, 0.22), transparent 70%),
-    radial-gradient(ellipse 22px 8px at 92% 42%, rgba(255, 225, 190, 0.24), transparent 70%),
-    radial-gradient(ellipse 28px 9px at 56% 72%, rgba(195, 185, 255, 0.24), transparent 70%),
-    radial-gradient(ellipse 18px 7px at 7% 38%, rgba(200, 230, 255, 0.22), transparent 70%),
-
-    /* ── Milky Way: soft diagonal band, bottom-left → top-right (36–41) ── */
-    radial-gradient(ellipse 30% 10% at 10% 76%, rgba(190, 205, 255, 0.10), transparent 70%),
-    radial-gradient(ellipse 32% 11% at 32% 62%, rgba(205, 215, 255, 0.12), transparent 70%),
-    radial-gradient(ellipse 32% 11% at 52% 48%, rgba(215, 225, 255, 0.13), transparent 70%),
-    radial-gradient(ellipse 32% 11% at 72% 34%, rgba(205, 215, 255, 0.12), transparent 70%),
-    radial-gradient(ellipse 30% 10% at 92% 21%, rgba(190, 205, 255, 0.10), transparent 70%),
-    radial-gradient(ellipse 20% 3% at 52% 47%, rgba(12, 10, 26, 0.5), transparent 80%),
-
-    /* ── ambient nebulae (42–45) ── */
-    radial-gradient(ellipse 36% 28% at 24% 28%, rgba(124, 82, 226, 0.12), transparent 70%),
-    radial-gradient(ellipse 32% 26% at 74% 72%, rgba(66, 120, 255, 0.10), transparent 70%),
-    radial-gradient(ellipse 26% 20% at 62% 16%, rgba(46, 190, 200, 0.07), transparent 70%),
-    radial-gradient(ellipse 24% 20% at 34% 84%, rgba(226, 110, 180, 0.07), transparent 70%),
-
-    /* ── base deep-space gradient (46) ── */
+    /* soft vignette to focus the eye toward center */
+    radial-gradient(ellipse 140% 110% at 50% 40%, transparent 50%, rgba(1, 2, 8, 0.6) 100%),
+    /* two aurora bands, cool + warm, doing the work the 5 "galaxies" did before */
+    radial-gradient(ellipse 55% 40% at 20% 25%, rgba(124, 82, 226, 0.28), transparent 70%),
+    radial-gradient(ellipse 50% 38% at 82% 65%, rgba(56, 189, 248, 0.22), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 65% 15%, rgba(232, 121, 249, 0.14), transparent 70%),
+    radial-gradient(ellipse 45% 32% at 15% 85%, rgba(251, 191, 108, 0.10), transparent 70%),
+    /* base sky */
     linear-gradient(172deg, #05070f 0%, #090d20 40%, #0b0820 70%, #04050e 100%);
 
-  background-repeat:
-    no-repeat,
-    repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat,
-    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
-    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
-    no-repeat, no-repeat, no-repeat, no-repeat,
-    no-repeat, no-repeat, no-repeat,
-    no-repeat, no-repeat,
-    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
-    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
-    no-repeat, no-repeat, no-repeat, no-repeat,
-    no-repeat;
-
-  background-size:
-    100% 100%,
-    293px 293px, 227px 227px, 331px 331px, 251px 251px,
-    283px 283px, 199px 199px, 271px 271px, 241px 241px,
-    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%,
-    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%,
-    100% 100%, 100% 100%, 100% 100%, 100% 100%,
-    100% 100%, 100% 100%, 100% 100%,
-    100% 100%, 100% 100%,
-    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%,
-    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%,
-    100% 100%, 100% 100%, 100% 100%, 100% 100%,
-    100% 100%;
-
-  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: 100% 100%, 130% 130%, 130% 130%, 130% 130%, 130% 130%, 100% 100%;
+  /* no background-attachment: fixed here — #about is taller than one
+     viewport, so "fixed" made the nebula glow appear stuck on screen
+     for the whole scroll instead of moving with the section. */
+  animation: aboutDrift 30s ease-in-out infinite alternate;
 }
 
+/* Stars: a single tiled layer instead of 8 separate radial-gradients */
+#about::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.6px 1.6px at 20% 30%, #fff 45%, transparent),
+    radial-gradient(1.2px 1.2px at 70% 10%, rgba(255,255,255,0.85) 45%, transparent),
+    radial-gradient(1px 1px at 45% 65%, rgba(255,255,255,0.65) 45%, transparent),
+    radial-gradient(1.4px 1.4px at 85% 55%, rgba(255,246,228,0.9) 45%, transparent),
+    radial-gradient(1px 1px at 10% 80%, rgba(205,222,255,0.8) 45%, transparent),
+    radial-gradient(1.6px 1.6px at 60% 88%, #fff 45%, transparent),
+    radial-gradient(1px 1px at 33% 8%, rgba(255,255,255,0.55) 45%, transparent),
+    radial-gradient(1.2px 1.2px at 93% 83%, rgba(255,235,215,0.8) 45%, transparent);
+  background-repeat: repeat;
+  background-size: 260px 260px;
+  opacity: 0.9;
+}
+
+@keyframes aboutDrift {
+  0%   { background-position: 0% 0%, 0% 0%, 100% 0%, 50% 100%, 0% 100%, 0 0; }
+  100% { background-position: 0% 0%, 10% 8%, 92% 10%, 55% 90%, 8% 92%, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #about,
+  #about::before {
+    animation: none !important;
+  }
+}
 
 #canvas-container {
   position: fixed;
