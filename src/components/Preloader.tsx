@@ -8,8 +8,8 @@ import { useProgress } from '@react-three/drei'
 // a safety valve: if a model 404s or a request hangs, the site still opens
 // instead of staying locked behind a stuck loader forever.
 const MIN_VISIBLE_MS = 700
-const FADE_MS = 550
-const FALLBACK_TIMEOUT_MS = 20000
+const FADE_MS = 650
+const FALLBACK_TIMEOUT_MS = 8000
 
 // Trims a loader URL down to just the filename for the boot log, e.g.
 // "models/transparentStasisPod.glb?v=2" → "transparentStasisPod.glb".
@@ -31,6 +31,11 @@ export function Preloader() {
 
   const mountedAt = useRef(Date.now())
   const lastItem = useRef<string | null>(null)
+  // High-water mark: drei's `total` can grow after an initial wave of
+  // assets already reads as 100% (a newly-registered loader bumps total
+  // before it's loaded), which made the raw percentage visibly dip. This
+  // state makes the displayed number monotonic — it only ever climbs.
+  const [maxPct, setMaxPct] = useState(0)
 
   // ── Reduced motion (live-updating) ────────────────────────────────────────
   useEffect(() => {
@@ -87,7 +92,12 @@ export function Preloader() {
 
   if (removed) return null
 
-  const pct = Math.min(100, Math.round(progress))
+  // "Adjusting state during render" (react.dev's documented pattern for
+  // deriving state from a changing input without an extra effect/commit
+  // round-trip) — see the maxPct comment above for why this needs clamping.
+  const rawPct = Math.min(100, Math.round(progress))
+  if (rawPct > maxPct) setMaxPct(rawPct)
+  const pct = Math.max(maxPct, rawPct)
   const hasErrors = errors.length > 0
   const label = pct >= 100 ? 'ALL SYSTEMS ONLINE' : 'INITIALIZING'
 
@@ -166,11 +176,15 @@ export function Preloader() {
             radial-gradient(ellipse 140% 110% at 50% 45%, transparent 55%, rgba(1,2,8,0.6) 100%),
             linear-gradient(172deg, #05070f 0%, #070a18 50%, #04050e 100%);
           color: #eaf6fb;
-          transition: opacity ${FADE_MS}ms ease;
+          transition: opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease, filter ${FADE_MS}ms ease;
           opacity: 1;
+          transform: scale(1);
+          filter: blur(0px);
         }
         .preloader.is-dismissed {
           opacity: 0;
+          transform: scale(1.04);
+          filter: blur(6px);
           pointer-events: none;
         }
 
@@ -219,9 +233,15 @@ export function Preloader() {
         .preloader-mark.is-complete {
           color: #7dffe0;
           filter: drop-shadow(0 0 22px rgba(125,255,224,0.6));
-          animation-play-state: paused;
+          animation: preloader-spin 3.2s linear infinite, preloader-mark-flash 0.6s ease-out;
+          animation-play-state: paused, running;
         }
         @keyframes preloader-spin { to { transform: rotate(360deg); } }
+        @keyframes preloader-mark-flash {
+          0% { filter: drop-shadow(0 0 22px rgba(125,255,224,0.6)); }
+          40% { filter: drop-shadow(0 0 40px rgba(125,255,224,1)) brightness(1.3); }
+          100% { filter: drop-shadow(0 0 22px rgba(125,255,224,0.6)); }
+        }
 
         .preloader-status {
           display: inline-flex;
@@ -278,11 +298,24 @@ export function Preloader() {
           margin-bottom: 0.6rem;
         }
         .preloader-bar-fill {
+          position: relative;
           height: 100%;
           border-radius: 3px;
           background: linear-gradient(90deg, #00b8d4, #00f7ff);
           box-shadow: 0 0 12px rgba(0,247,255,0.55);
           transition: width 0.25s ease-out;
+          overflow: hidden;
+        }
+        .preloader-bar-fill::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.65) 50%, transparent 70%);
+          transform: translateX(-100%);
+          animation: preloader-bar-shimmer 1.6s ease-in-out infinite;
+        }
+        @keyframes preloader-bar-shimmer {
+          to { transform: translateX(100%); }
         }
 
         .preloader-meta {
@@ -325,11 +358,13 @@ export function Preloader() {
 
         @media (prefers-reduced-motion: reduce) {
           .preloader { transition: opacity 0.15s linear; }
+          .preloader.is-dismissed { transform: none; filter: none; }
           .preloader-mark { animation: none; }
           .preloader-dot { animation: none; opacity: 0.9; }
           .preloader-scanlines { animation: none; }
           .preloader-pct { animation: none; }
           .preloader-log-line { animation: none; }
+          .preloader-bar-fill::after { animation: none; }
         }
       `}</style>
     </div>

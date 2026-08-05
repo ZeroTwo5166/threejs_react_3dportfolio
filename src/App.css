@@ -3,9 +3,34 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
-  background: #c9963f;
-  color: #e8ecf8;
+  color: var(--cream-ink);
   font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+/* Warm, slowly-drifting cream backdrop for the hero — same base/accent as
+   the navbar's cream theme (see Navbar.tsx THEME_COLORS.cream), so the
+   home section and the pill nav read as one continuous surface instead of
+   two different tans. Drifts instead of sitting flat/static. */
+body {
+  background-color: var(--cream-bg);
+  background-image:
+    radial-gradient(ellipse 65% 55% at 18% 22%, rgba(var(--cream-accent-rgb), 0.4), transparent 62%),
+    radial-gradient(ellipse 60% 50% at 85% 12%, rgba(255, 226, 186, 0.45), transparent 65%),
+    radial-gradient(ellipse 75% 60% at 55% 105%, rgba(var(--cream-accent-rgb), 0.3), transparent 70%),
+    linear-gradient(160deg, #faf4e9 0%, #f2e6d1 45%, #e7cfa6 100%);
+  background-repeat: no-repeat;
+  background-size: 180% 180%, 180% 180%, 180% 180%, 100% 100%;
+  background-attachment: fixed;
+  animation: creamDrift 26s ease-in-out infinite alternate;
+}
+
+@keyframes creamDrift {
+  0% {
+    background-position: 0% 0%, 100% 0%, 50% 100%, 0 0;
+  }
+  100% {
+    background-position: 12% 14%, 88% 18%, 56% 88%, 0 0;
+  }
 }
 
 #about {
@@ -142,22 +167,41 @@ body {
   align-items: flex-start;
   max-width: 500px;
   transform-origin: top left;
-  transition: transform 0.2s ease;
+  /* JS (App.tsx) writes --parallax-x/--parallax-y on mousemove; the
+     translate3d reads them so the whole block drifts slightly toward the
+     cursor. will-change keeps it off the main-thread paint path. */
+  transform: translate3d(calc(var(--parallax-x, 0) * 1px), calc(var(--parallax-y, 0) * 1px), 0);
+  transition: transform 0.2s ease-out;
+  will-change: transform;
 }
 
 .hero-name {
   font-size: 6rem;
   font-weight: 800;
   line-height: 1.1;
-  color: #00f7ff;
   margin: 0;
   font-family: 'Inter', 'Segoe UI', sans-serif;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+
+  /* Solid, high-contrast ink — a gradient/clipped-text fill here read as
+     washed-out against the equally-warm cream backdrop. A soft light halo
+     behind the glyphs plus a hairline accent edge keeps it legible over
+     the busy 3D scene without resorting to a flat dark box behind it. */
+  color: var(--cream-ink);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5),
+    0 2px 18px rgba(255, 248, 235, 0.9),
+    0 10px 30px rgba(58, 42, 24, 0.18);
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.35);
+
+  opacity: 0;
+  animation: heroReveal 1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
 }
 
 .hero-badge-container {
   margin-top: 5px;
   margin-left: 20px;
+  opacity: 0;
+  animation: heroReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.45s both;
 }
 
 .hero-badge {
@@ -168,7 +212,11 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   transform: rotate(-3deg);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease, scale 0.25s ease;
+}
+
+.hero-badge:hover {
+  scale: 1.06;
 }
 
 /* The Animation */
@@ -188,8 +236,20 @@ body {
   font-size: 1.1rem;
   font-weight: 700;
   font-family: inherit;
-  transition: none;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, filter 0.25s ease;
   pointer-events: auto;
+  opacity: 0;
+  animation: heroReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.65s both;
+}
+
+.scroll-down-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  filter: brightness(1.08);
+}
+
+.scroll-down-btn:active {
+  transform: translateY(-1px) scale(0.98);
 }
 
 /* Bouncing arrow animation */
@@ -213,6 +273,19 @@ body {
   * {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+@keyframes heroReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(28px);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
   }
 }
 
@@ -244,10 +317,25 @@ body {
   }
 }
 
+/* Wide laptops/desktops — the 3D scene is still at full scale here
+   (Home.tsx only starts shrinking it below 1700px) and just about to
+   recenter itself leftward as it does, so the hero text needs to be out
+   of the way well before the 900px tablet breakpoint below. */
+@media (max-width: 1800px) {
+  .hero-container {
+    top: 14%;
+    max-width: 440px;
+  }
+
+  .hero-name {
+    font-size: 5rem;
+  }
+}
+
 /* Tablets and small laptops */
 @media (max-width: 900px) {
   .hero-container {
-    top: 12%;
+    top: 6%;
     left: 35%;
     max-width: 420px;
   }
@@ -265,7 +353,7 @@ body {
 /* Phones */
 @media (max-width: 600px) {
   .hero-container {
-    top: 8%;              /* pinned near the top */
+    top: 4%;              /* pinned near the very top, clear of the models */
     left:23%;
     max-width: none;
   }

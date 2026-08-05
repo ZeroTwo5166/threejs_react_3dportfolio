@@ -794,3 +794,17 @@ export function Avatar(props: AvatarProps) {
 
 useGLTF.preload('models/Avatar-transformed.glb')
 useGLTF.preload('models/transparentStasisPod.compressed.glb')
+
+// These have no Suspense-driven eager entry point the way the GLTFs above
+// do (useFBX is called deep inside Avatar()'s render, after two useGLTF
+// calls that must resolve first) — so without an explicit preload, the
+// loading manager's `total` only grows to include them on a second render
+// pass, well after the first wave of assets can already read as 100%.
+// That's what made the Preloader's percentage dip back down after
+// reaching 100, and occasionally made it hang waiting to re-settle.
+useFBX.preload('animations/Typing.fbx')
+useFBX.preload('animations/Idle.fbx')
+useFBX.preload('animations/Sit_To_Stand.fbx')
+useFBX.preload('animations/Turning.fbx')
+useFBX.preload('animations/Walking.fbx')
+useFBX.preload('animations/Jumping.fbx')

@@ -42,10 +42,36 @@ export default function App() {
 
   // REF FOR ROUTING CLICKS INTO THE CANVAS
   const pageRef = useRef<HTMLDivElement>(null);
+  const heroTextRef = useRef<HTMLDivElement>(null);
 
   // Computed once on mount (not SSR'd, so no hydration concern) — see
   // isLowPowerDevice() above.
   const [lowPower] = useState(isLowPowerDevice);
+
+  // Subtle cursor parallax on the hero headline block — only for fine
+  // pointers (mirrors the coarse-pointer check above) and skipped under
+  // prefers-reduced-motion. Writes CSS vars that .hero-container's
+  // transform (App.css) already reads, rather than fighting its
+  // transition with inline transforms.
+  useEffect(() => {
+    if (lowPower) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const el = heroTextRef.current
+    if (!el) return
+
+    const STRENGTH_X = 16
+    const STRENGTH_Y = 10
+
+    const onMove = (e: MouseEvent) => {
+      const nx = e.clientX / window.innerWidth - 0.5
+      const ny = e.clientY / window.innerHeight - 0.5
+      el.style.setProperty('--parallax-x', String(nx * STRENGTH_X))
+      el.style.setProperty('--parallax-y', String(ny * STRENGTH_Y))
+    }
+
+    window.addEventListener('mousemove', onMove, { passive: true })
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [lowPower]);
 
 
   useEffect(() => {
@@ -96,7 +122,7 @@ export default function App() {
       <main>
         {/* Screen 0 → 1 */}
         <section id="hero" className="scroll-section">
-          <div id="hero-text" className="hero-container">
+          <div id="hero-text" className="hero-container" ref={heroTextRef}>
             <h1 className="hero-name">Subarna<br />Gurung</h1>
 
             <div className="hero-badge-container">

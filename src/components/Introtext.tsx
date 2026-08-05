@@ -187,8 +187,10 @@ export function IntroText() {
           font-weight: 500;
         }
 
-        /* 1700px and below — matches the 3D scene's shrink breakpoint */
-        @media (max-width: 1700px) {
+        /* 2000px and below — same reasoning as the hero's 1800px tier in
+           App.css: the 3D scene is still full scale up here and about to
+           encroach, so pull the story blocks up well before that happens. */
+        @media (max-width: 2000px) {
           .intro-block {
             top: 10%;
           }

@@ -54,6 +54,17 @@ body {
   margin: 0;
 }
 
+/* ── Home / hero theme ──────────────────────────────────────────────────
+   Matches Navbar.tsx's THEME_COLORS.cream exactly: bg base #f4ede1
+   (rgba(244,237,225)), accent #d6a77a (214,167,122) — so the hero section
+   and the pill nav read as the same surface, not two different beiges. */
+:root {
+  --cream-bg: #f4ede1;
+  --cream-accent: #d6a77a;
+  --cream-accent-rgb: 214, 167, 122;
+  --cream-ink: #3a2a18;
+}
+
 #root {
 
   max-width: 100%;

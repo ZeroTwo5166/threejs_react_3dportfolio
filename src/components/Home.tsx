@@ -309,12 +309,14 @@ export function Home() {
         <>
             {/* The background color was removed from here so HTML shows through */}
             <group>
-                {/* Global lights — dimmed during kamehameha */}
-                <ambientLight intensity={kamehameha ? KAME.ambientIntensity : LIGHTS.ambient} color="#ffffff" />
+                {/* Global lights — dimmed during kamehameha. Warm-tinted
+                    (not pure white) so the scene reads as part of the same
+                    cream-toned world as the hero background/navbar. */}
+                <ambientLight intensity={kamehameha ? KAME.ambientIntensity : LIGHTS.ambient} color="#fff3e0" />
                 <directionalLight
                     position={LIGHTS.dirPos as unknown as [number, number, number]}
                     intensity={kamehameha ? KAME.dirIntensity : LIGHTS.dir}
-                    color="#ffffff"
+                    color="#fff8ee"
                     castShadow
                 />
 
