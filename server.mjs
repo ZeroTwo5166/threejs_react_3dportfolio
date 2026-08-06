@@ -1,23 +1,24 @@
-// server/server.mjs
+// server.mjs (repo root)
 // VPS version — one small Express server that BOTH serves your built Vite
-// site (../dist) and exposes the same POST /api/contact endpoint the
+// site (./dist) and exposes the same POST /api/contact endpoint the
 // frontend uses on Vercel. The React code doesn't change between hosts.
 //
 // Setup on the VPS:
-//   npm install express          (in the project root)
+//   npm ci                       (installs express + dotenv from package.json)
 //   npm run build                (produces dist/)
-//   RESEND_API_KEY=re_xxx CONTACT_TO=you@gmail.com node server/server.mjs
+//   RESEND_API_KEY=re_xxx CONTACT_TO=you@gmail.com node server.mjs
 //
 // Keep it alive with pm2:
-//   pm2 start server/server.mjs --name portfolio --update-env
+//   pm2 start server.mjs --name portfolio --update-env
 // Then point nginx at http://127.0.0.1:3000 (or set PORT).
 
+import 'dotenv/config'
 import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DIST = path.join(__dirname, '..', 'dist')
+const DIST = path.join(__dirname, 'dist')
 
 const PORT = process.env.PORT || 3000
 const MAX_NAME = 100
@@ -101,9 +102,12 @@ app.post('/api/contact', async (req, res) => {
   }
 })
 
-// Static site + SPA fallback
+// Static site + SPA fallback. A path-less app.use (rather than
+// app.get('*', ...)) sidesteps Express 5's stricter wildcard route syntax
+// (path-to-regexp no longer accepts a bare '*') — this form works
+// unchanged across Express 4 and 5.
 app.use(express.static(DIST))
-app.get('*', (_req, res) => res.sendFile(path.join(DIST, 'index.html')))
+app.use((_req, res) => res.sendFile(path.join(DIST, 'index.html')))
 
 app.listen(PORT, () => {
   console.log(`portfolio up on http://localhost:${PORT}`)
