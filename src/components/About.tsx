@@ -253,7 +253,7 @@ export const About = () => {
                 transitionDelay: '160ms',
               }}
             >
-              Rank: Mid-level · Mission: ship software
+              Mission: ship software
             </p>
 
             {/* Bio — collapses on short mobile viewports (see fit check) */}

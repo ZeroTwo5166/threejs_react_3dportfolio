@@ -36,7 +36,7 @@ export default function App() {
   const [titleIndex, setTitleIndex] = useState(0);
   const titles = [
     { text: "Software Developer", color: "#2b4570", bg: "#2b4570", shadow: "rgba(43, 69, 112, 0.15)" },
-    { text: "Gamer", color: "#ff6b35", bg: "#ff6b35", shadow: "rgba(255, 107, 53, 0.15)" },
+    { text: "Student", color: "#6366f1", bg: "#6366f1", shadow: "rgba(99, 102, 241, 0.15)" },
     { text: "Fullstack Developer", color: "#10b981", bg: "#10b981", shadow: "rgba(16, 185, 129, 0.15)" }
   ];
 

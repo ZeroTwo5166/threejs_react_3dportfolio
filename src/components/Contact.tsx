@@ -22,7 +22,7 @@ const CHANNELS: Array<{
 }> = [
   { label: 'EMAIL', value: EMAIL, href: `mailto:${EMAIL}`, status: 'PREFERRED' },
   { label: 'GITHUB', value: 'ZeroTwo5166', href: 'https://github.com/ZeroTwo5166', status: 'PUBLIC' },
-  // { label: 'LINKEDIN', value: '/in/subarna-gurung', href: 'https://www.linkedin.com/', status: 'OPEN' }, // TODO: real URL
+  { label: 'LINKEDIN', value: '/in/dryorc5166', href: 'https://www.linkedin.com/in/dryorc5166/', status: 'OPEN' },
   { label: 'LOCATION', value: 'Copenhagen, DK', status: 'UTC+1' },
 ]
 

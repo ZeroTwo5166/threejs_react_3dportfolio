@@ -57,7 +57,7 @@ const PROJECTS: Project[] = [
     thumbnail: '/projects/TEC.png',
     repo: 'https://github.com/ZeroTwo5166/SOP-Inventory.git', // TODO: confirm real repo URL
     // No `link` — internal school system, not publicly reachable. The card
-    // shows "no_public_access" for the live view and still links out to source.
+    // shows a lock icon for the live view and still links out to source.
   },
   {
     id: '04',
@@ -343,10 +343,27 @@ function ProjectCard({
         zIndex: 1,
       }}>
         {project.link ? (
-          <a href={project.link} target="_blank" rel="noreferrer" className="project-link">launch_↗</a>
-        ) : (
-          <span className="project-link" style={{ opacity: 0.4, cursor: 'default' }}>no_public_access</span>
-        )}
+  <a href={project.link} target="_blank" rel="noreferrer" className="project-link">launch_↗</a>
+) : project.status === 'OFFLINE' ? (
+  <span
+    className="project-link"
+    style={{ opacity: 0.4, cursor: 'default' }}
+  >
+    offline
+  </span>
+) : (
+  <span
+    className="project-link"
+    style={{ opacity: 0.4, cursor: 'default', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+    title="No public access"
+  >
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+    private
+  </span>
+)}
         {project.repo && (
           <a href={project.repo} target="_blank" rel="noreferrer" className="project-link">source_↗</a>
         )}
