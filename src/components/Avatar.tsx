@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import type { MutableRefObject } from 'react'
 import { useFrame, useGraph } from '@react-three/fiber'
-import { useGLTF, useAnimations, useFBX, useTexture, Sparkles, Billboard } from '@react-three/drei'
-import { SkeletonUtils } from 'three-stdlib'
+import { useGLTF, useAnimations, useFBX, useTexture, Billboard } from '@react-three/drei'
+import { SkeletonUtils, mergeBufferGeometries } from 'three-stdlib'
 import * as THREE from 'three'
 import { TL, ABOUT_UNPIN, useViewportUnit, scrollScreens, avatarPhase } from './Scrolltimeline'
 import type { AvatarPhaseName } from './Scrolltimeline'
@@ -76,24 +77,10 @@ export const MOBILE = {
   topNdc: 0.67,     // NDC y where the pod's top edge sits (1 = very top)
 }
 
-const SPARKLES = {
-  desktopCount: 5000,
-  smallCount: 4000,   //below SMALL_SCREEN.breakpoint (2200px)
-  mobileCount: 1500,  // at or below MOBILE.breakpoint (1000px)
-}
-
-function getSparkleCount(): number {
-  if (typeof window === 'undefined') return SPARKLES.desktopCount
-  const w = window.innerWidth
-  if (w <= MOBILE.breakpoint) return SPARKLES.mobileCount
-  if (w < SMALL_SCREEN.breakpoint) return SPARKLES.smallCount
-  return SPARKLES.desktopCount
-}
-
 // ─── Tech Orbit ─────────────────────────────────────────────────────────────
 const ORBIT = {
   autoOrbit: true,
-  speed: 1,
+  speed: 0.5,
   tilt: 0,
   yOffset: 3.0,
 }
@@ -102,9 +89,9 @@ const ORBIT_RADIUS = 18
 
 type OrbitPlanetData = {
   name: string
-  x: number
+  baseAngle: number
+  radius: number
   y: number
-  z: number
   size: number
   focusScale?: number
 }
@@ -113,28 +100,53 @@ const orbitPlanets: OrbitPlanetData[] = TECH_ICONS.map((icon, i) => {
   const angle = (i / TECH_ICONS.length) * Math.PI * 2 - Math.PI / 2
   return {
     name: icon.name,
-    x: Number((ORBIT_RADIUS * Math.cos(angle)).toFixed(1)),
+    baseAngle: angle,
+    radius: ORBIT_RADIUS,
     y: 0,
-    z: Number((ORBIT_RADIUS * Math.sin(angle)).toFixed(1)),
     size: (icon.size ?? 6) * PLANET_SIZE_SCALE,
     focusScale: icon.focusScale,
   }
 })
 
 // ─── Orbit Planet component ─────────────────────────────────────────────────
+// Position is computed directly here (pure translation) each frame from a
+// shared angle ref, rather than by rotating a parent group and letting
+// Billboard's position sweep automatically. drei's Billboard computes its
+// camera-facing counter-rotation from its own matrixWorld via
+// updateWorldMatrix(false, false) — it does NOT force its parent's matrix
+// to refresh first, and Object3D.matrixWorld is a cached value only
+// recomputed during the renderer's own per-frame traversal (which runs
+// AFTER useFrame callbacks). So a Billboard nested inside a group whose
+// .rotation is mutated every frame reads a one-frame-stale rotation,
+// which shows up as visible jitter under continuous auto-rotation.
+// Position changes don't feed into that counter-rotation calc at all
+// (getWorldQuaternion ignores translation), so animating position instead
+// of parent rotation sidesteps the bug entirely.
 type OrbitPlanetProps = {
   name: string
   texture: THREE.Texture
-  position: [number, number, number]
+  baseAngle: number
+  radius: number
+  y: number
+  angleRef: MutableRefObject<number>
   size: number
   focusScale?: number
 }
 
-function OrbitPlanet({ name, texture, position, size, focusScale = FOCUS_SCALE_MULT }: OrbitPlanetProps) {
+function OrbitPlanet({ name, texture, baseAngle, radius, y, angleRef, size, focusScale = FOCUS_SCALE_MULT }: OrbitPlanetProps) {
+  const groupRef = useRef<THREE.Group>(null)
   const meshRef = useRef<THREE.Mesh>(null)
   const matRef = useRef<THREE.MeshBasicMaterial>(null)
 
   useFrame(() => {
+    if (groupRef.current) {
+      // Matches the direction of the old rotation.y += approach: rotating a
+      // point by +θ around Y is equivalent to evaluating cos/sin at
+      // (baseAngle - θ), not (baseAngle + θ).
+      const angle = baseAngle - angleRef.current
+      groupRef.current.position.set(radius * Math.cos(angle), y, radius * Math.sin(angle))
+    }
+
     const selected = techStore.getSelected()
     const focusSet = selected ? SYSTEM_TECHS[selected] : null
 
@@ -160,7 +172,7 @@ function OrbitPlanet({ name, texture, position, size, focusScale = FOCUS_SCALE_M
   })
 
   return (
-    <Billboard position={position} follow>
+    <Billboard ref={groupRef} follow>
       <mesh ref={meshRef} scale={size}>
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
@@ -185,32 +197,33 @@ type TechOrbitProps = {
 
 function TechOrbit({ planets, autoOrbit, speed, tilt }: TechOrbitProps) {
   const textures = useTexture(TECH_ICONS.map((t) => t.tex))
-  const spinRef = useRef<THREE.Group>(null)
+  const angleRef = useRef(0)
   const currentSpeed = useRef(speed)
 
   useFrame((_, delta) => {
-    if (autoOrbit && spinRef.current) {
+    if (autoOrbit) {
       const focused = techStore.getSelected() !== null
       const targetSpeed = focused ? speed * FOCUS_ORBIT_FACTOR : speed
       currentSpeed.current = THREE.MathUtils.lerp(currentSpeed.current, targetSpeed, 0.05)
-      spinRef.current.rotation.y += delta * currentSpeed.current
+      angleRef.current += delta * currentSpeed.current
     }
   })
 
   return (
     <group rotation-x={tilt}>
-      <group ref={spinRef}>
-        {planets.map((p, i) => (
-          <OrbitPlanet
-            key={p.name}
-            name={p.name}
-            texture={textures[i]}
-            position={[p.x, p.y, p.z]}
-            size={p.size}
-            focusScale={p.focusScale}
-          />
-        ))}
-      </group>
+      {planets.map((p, i) => (
+        <OrbitPlanet
+          key={p.name}
+          name={p.name}
+          texture={textures[i]}
+          baseAngle={p.baseAngle}
+          radius={p.radius}
+          y={p.y}
+          angleRef={angleRef}
+          size={p.size}
+          focusScale={p.focusScale}
+        />
+      ))}
     </group>
   )
 }
@@ -230,6 +243,78 @@ const PHASE_CLIP: Record<AvatarPhaseName, 'Typing' | 'SitToStand' | 'Turning' | 
 
 const HEAD_FOLLOW_TARGET = new THREE.Vector3(-32, 138, 253)
 
+// Collapses a static prop model's fragmented mesh hierarchy into one merged
+// mesh per unique material. The stasis pod GLB ships ~100+ separate tiny
+// meshes (individual bolts/supports/panels) that all share a handful of
+// materials — each one costs its own draw call. profiling (renderer.info)
+// showed draw calls jumping 27 (Home) → 175 (About) specifically because
+// this pod becomes visible there; merging by material collapses that back
+// down to roughly one draw call per material. One-time CPU cost at mount,
+// paid once, instead of every frame for as long as the pod is on screen.
+function mergeStaticMeshesByMaterial(root: THREE.Object3D): THREE.Group {
+  root.updateMatrixWorld(true)
+
+  const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>()
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!(mesh as unknown as { isMesh?: boolean }).isMesh) return
+    if ((mesh as unknown as { isSkinnedMesh?: boolean }).isSkinnedMesh) return
+    const material = mesh.material as THREE.Material | THREE.Material[] | undefined
+    const mat = Array.isArray(material) ? material[0] : material
+    if (!mat || !mesh.geometry) return
+
+    // Bake this mesh's world transform into a geometry clone so every
+    // merged vertex lands in the same space, then group by material so
+    // mergeBufferGeometries only ever combines compatible attribute sets.
+    const geom = mesh.geometry.clone()
+    geom.applyMatrix4(mesh.matrixWorld)
+    const list = byMaterial.get(mat) ?? []
+    list.push(geom)
+    byMaterial.set(mat, list)
+  })
+
+  const group = new THREE.Group()
+  for (const [material, geoms] of byMaterial) {
+    const merged = geoms.length > 1 ? mergeBufferGeometries(geoms, false) : geoms[0]
+
+    // mergeBufferGeometries returns null if this material's meshes don't
+    // all share the same attribute set (e.g. one has uv2, another doesn't)
+    // — fall back to adding them individually rather than losing geometry.
+    if (!merged) {
+      for (const g of geoms) group.add(new THREE.Mesh(g, material))
+      continue
+    }
+
+    const mesh = new THREE.Mesh(merged, material)
+    mesh.frustumCulled = false
+
+    // KHR_materials_transmission (real physical glass refraction) makes
+    // Three.js render the entire opaque scene to an offscreen target
+    // every frame just to sample it for refraction — a large, constant
+    // cost totally independent of the transmissive mesh's own triangle
+    // count or screen size. Profiling confirmed this: the pod's glass
+    // panel is only 576 of its 16,407 total triangles, yet was the sole
+    // reason About ran at ~58fps vs Home's 100+ (removing the pod
+    // entirely, and only that, fixed it). Falling back to plain alpha
+    // blending reads as "glass" for a small decorative panel at a
+    // fraction of the cost.
+    const physMat = material as THREE.Material & { transmission?: number; opacity: number }
+    if (physMat.transmission) {
+      physMat.transmission = 0
+      physMat.transparent = true
+      physMat.opacity = Math.min(physMat.opacity, 0.35)
+      physMat.depthWrite = false
+      mesh.renderOrder = 2
+    } else if (material.transparent || (material as THREE.Material & { opacity: number }).opacity < 1) {
+      material.transparent = true
+      material.depthWrite = false
+      mesh.renderOrder = 2
+    }
+    group.add(mesh)
+  }
+  return group
+}
+
 export function Avatar(props: AvatarProps) {
   const vhPx = useViewportUnit()
 
@@ -241,18 +326,27 @@ export function Avatar(props: AvatarProps) {
   const snappedToCamera = useRef(false)
   const isAtTop = useRef(true)
 
-  // GPU warm-up window (see podRef.current.visible below) — the pod, its
-  // Sparkles, and the 8 tech-orbit logo textures otherwise get their first
-  // real draw call at the exact scroll position where the avatar jumps in,
-  // which is what caused the one-time stutter.
+  // GPU warm-up window (see podRef.current.visible below) — the pod and
+  // its 8 tech-orbit logo textures otherwise get their first real draw
+  // call at the exact scroll position where the avatar jumps in, which is
+  // what caused the one-time stutter.
   const mountTimeRef = useRef(Date.now())
 
   const podWorldTarget = useRef(new THREE.Vector3())
+  const localTargetTmp = useRef(new THREE.Vector3())
   const probeA = useRef(new THREE.Vector3())
   const probeB = useRef(new THREE.Vector3())
   const parentScaleTmp = useRef(new THREE.Vector3())
 
-  const [sparkleCount, setSparkleCount] = useState(getSparkleCount)
+  // Blend-into-pod rotation: the target orientation is constant
+  // (IN_POD_DEFAULTS never changes at runtime), so it's computed once here
+  // instead of allocating a fresh Quaternion/Euler every frame in useFrame.
+  const identityQuatRef = useRef(new THREE.Quaternion())
+  const inPodQuatRef = useRef(
+    new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(IN_POD_DEFAULTS.rotX, IN_POD_DEFAULTS.rotY, IN_POD_DEFAULTS.rotZ)
+    )
+  )
 
   // ── Layout Constants ──────────────────────────────────────────────────────
   const modelScale = 1
@@ -267,9 +361,6 @@ export function Avatar(props: AvatarProps) {
   const inPodX = IN_POD_DEFAULTS.x
   const inPodY = IN_POD_DEFAULTS.y
   const inPodZ = IN_POD_DEFAULTS.z
-  const inPodRotX = IN_POD_DEFAULTS.rotX
-  const inPodRotY = IN_POD_DEFAULTS.rotY
-  const inPodRotZ = IN_POD_DEFAULTS.rotZ
 
   const smallXOffset = SMALL_SCREEN.xOffset
   const smallYOffset = SMALL_SCREEN.yOffset
@@ -294,7 +385,6 @@ export function Avatar(props: AvatarProps) {
     const onResize = () => {
       smallTargetRef.current = window.innerWidth < SMALL_SCREEN.breakpoint ? 1 : 0
       mobileTargetRef.current = window.innerWidth <= MOBILE.breakpoint ? 1 : 0
-      setSparkleCount(getSparkleCount())
     }
     onResize()
     window.addEventListener('resize', onResize)
@@ -309,22 +399,7 @@ export function Avatar(props: AvatarProps) {
   const { scene: podScene } = useGLTF('models/transparentStasisPod.compressed.glb')
   const podClone = useMemo(() => {
     const cloned = SkeletonUtils.clone(podScene)
-    cloned.traverse((child) => {
-      const mesh = child as THREE.Mesh
-      if ((mesh as any).isMesh) {
-        mesh.frustumCulled = false
-        const material = mesh.material as THREE.Material | THREE.Material[] | undefined
-        const materials = Array.isArray(material) ? material : material ? [material] : []
-        materials.forEach((mat) => {
-          if (mat.transparent || mat.opacity < 1) {
-            mat.transparent = true
-            mat.depthWrite = false
-            mesh.renderOrder = 2
-          }
-        })
-      }
-    })
-    return cloned
+    return mergeStaticMeshesByMaterial(cloned)
   }, [podScene])
 
   const podBaseHalfHeight = useMemo(() => {
@@ -632,11 +707,11 @@ export function Avatar(props: AvatarProps) {
         }
 
         // Setting `.visible = false` makes Three.js skip the draw call
-        // entirely — so the pod's materials, its Sparkles, and the 8
-        // tech-orbit logo textures were never actually uploaded to the
-        // GPU until the very first time this flipped true, which happens
-        // right as the avatar jumps in. That first real draw call is what
-        // caused the one-time FPS drop.
+        // entirely — so the pod's materials and the 8 tech-orbit logo
+        // textures were never actually uploaded to the GPU until the very
+        // first time this flipped true, which happens right as the avatar
+        // jumps in. That first real draw call is what caused the one-time
+        // FPS drop.
         //
         // Fix: force it visible for a brief window right after mount so
         // it gets a few genuine warm-up frames while parked at its
@@ -651,8 +726,9 @@ export function Avatar(props: AvatarProps) {
       }
 
       podWorldTarget.current.set(effPodX, targetWorldY, podZ)
-      const localTarget = podRef.current.parent.worldToLocal(podWorldTarget.current.clone())
-      podRef.current.position.copy(localTarget)
+      localTargetTmp.current.copy(podWorldTarget.current)
+      podRef.current.parent.worldToLocal(localTargetTmp.current)
+      podRef.current.position.copy(localTargetTmp.current)
     }
 
     // ── Avatar blend into pod ─────────────────────────────────────────────
@@ -680,11 +756,7 @@ export function Avatar(props: AvatarProps) {
       )
 
       // Rotation (interpolate from identity to in-pod rotation)
-      const identityQuat = new THREE.Quaternion()
-      const targetQuat = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(inPodRotX, inPodRotY, inPodRotZ)
-      )
-      modelRef.current.quaternion.copy(identityQuat).slerp(targetQuat, eased)
+      modelRef.current.quaternion.copy(identityQuatRef.current).slerp(inPodQuatRef.current, eased)
 
       modelRef.current.visible = phase === 'landed' ? podRef.current.visible : true
     }
@@ -759,17 +831,6 @@ export function Avatar(props: AvatarProps) {
     <group ref={group} {...props} dispose={null}>
       <group ref={podRef}>
         <primitive object={podClone} />
-        <Sparkles
-          key={sparkleCount}
-          count={sparkleCount}
-          scale={[1.7, 5, 1.2]}
-          size={100}
-          speed={15}
-          opacity={0.4}
-          color="#F5F5F5"
-          noise={2}
-          position={[0, 2.5, 0]}
-        />
         <group
           scale={[1 / (podScale * modelScale), 1 / (podScale * modelScale), 1 / (podScale * modelScale)]}
           position-y={ORBIT.yOffset}

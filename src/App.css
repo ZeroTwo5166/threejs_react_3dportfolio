@@ -33,60 +33,63 @@ body {
   }
 }
 
+/* Deep-space backdrop — dark navy base, a drifting cyan/blue glow (matches
+   the panel's #00f7ff accent), and a starfield layer below. All CSS
+   gradients (no extra draw calls, cheap GPU compositing), same "drifting
+   gradient" technique as the hero's creamDrift above, just recolored for
+   this section's terminal aesthetic. */
 #about {
   overflow-x: hidden;
   color: #e8ecf8;
   position: relative;
-  background-color: #04060f;
-
-  /* Base deep-space gradient */
+  background-color: #05070f;
   background-image:
-    /* soft vignette to focus the eye toward center */
-    radial-gradient(ellipse 140% 110% at 50% 40%, transparent 50%, rgba(1, 2, 8, 0.6) 100%),
-    /* two aurora bands, cool + warm, doing the work the 5 "galaxies" did before */
-    radial-gradient(ellipse 55% 40% at 20% 25%, rgba(124, 82, 226, 0.28), transparent 70%),
-    radial-gradient(ellipse 50% 38% at 82% 65%, rgba(56, 189, 248, 0.22), transparent 70%),
-    radial-gradient(ellipse 40% 30% at 65% 15%, rgba(232, 121, 249, 0.14), transparent 70%),
-    radial-gradient(ellipse 45% 32% at 15% 85%, rgba(251, 191, 108, 0.10), transparent 70%),
-    /* base sky */
-    linear-gradient(172deg, #05070f 0%, #090d20 40%, #0b0820 70%, #04050e 100%);
-
+    radial-gradient(ellipse 60% 45% at 22% 28%, rgba(0, 247, 255, 0.14), transparent 65%),
+    radial-gradient(ellipse 55% 50% at 82% 70%, rgba(88, 120, 255, 0.12), transparent 68%),
+    radial-gradient(ellipse 140% 110% at 50% 40%, transparent 55%, rgba(1, 2, 8, 0.65) 100%),
+    linear-gradient(172deg, #050810 0%, #060a16 40%, #04060d 100%);
   background-repeat: no-repeat;
-  background-size: 100% 100%, 130% 130%, 130% 130%, 130% 130%, 130% 130%, 100% 100%;
-  /* no background-attachment: fixed here — #about is taller than one
-     viewport, so "fixed" made the nebula glow appear stuck on screen
-     for the whole scroll instead of moving with the section. */
-  animation: aboutDrift 30s ease-in-out infinite alternate;
+  background-size: 160% 160%, 160% 160%, 100% 100%, 100% 100%;
+  /* no background-attachment: fixed — #about is taller than one viewport,
+     so "fixed" would make the glow appear stuck on screen for the whole
+     scroll instead of moving with the section (same reasoning as the old,
+     since-removed version of this background). */
+  animation: aboutDrift 34s ease-in-out infinite alternate;
 }
 
-/* Stars: a single tiled layer instead of 8 separate radial-gradients */
+/* Stars: a single tiled layer (a handful of dots per tile) instead of one
+   giant comma-separated list, so this doesn't scale with section height —
+   same technique as the old, since-removed starfield. */
 #about::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-image:
     radial-gradient(1.6px 1.6px at 20% 30%, #fff 45%, transparent),
-    radial-gradient(1.2px 1.2px at 70% 10%, rgba(255,255,255,0.85) 45%, transparent),
-    radial-gradient(1px 1px at 45% 65%, rgba(255,255,255,0.65) 45%, transparent),
-    radial-gradient(1.4px 1.4px at 85% 55%, rgba(255,246,228,0.9) 45%, transparent),
-    radial-gradient(1px 1px at 10% 80%, rgba(205,222,255,0.8) 45%, transparent),
+    radial-gradient(1.2px 1.2px at 70% 10%, rgba(190, 245, 255, 0.85) 45%, transparent),
+    radial-gradient(1px 1px at 45% 65%, rgba(255, 255, 255, 0.6) 45%, transparent),
+    radial-gradient(1.4px 1.4px at 85% 55%, rgba(190, 245, 255, 0.9) 45%, transparent),
+    radial-gradient(1px 1px at 10% 80%, rgba(205, 222, 255, 0.75) 45%, transparent),
     radial-gradient(1.6px 1.6px at 60% 88%, #fff 45%, transparent),
-    radial-gradient(1px 1px at 33% 8%, rgba(255,255,255,0.55) 45%, transparent),
-    radial-gradient(1.2px 1.2px at 93% 83%, rgba(255,235,215,0.8) 45%, transparent);
+    radial-gradient(1px 1px at 33% 8%, rgba(255, 255, 255, 0.5) 45%, transparent),
+    radial-gradient(1.2px 1.2px at 93% 83%, rgba(190, 245, 255, 0.8) 45%, transparent);
   background-repeat: repeat;
   background-size: 260px 260px;
-  opacity: 0.9;
+  opacity: 0.7;
 }
 
 @keyframes aboutDrift {
-  0%   { background-position: 0% 0%, 0% 0%, 100% 0%, 50% 100%, 0% 100%, 0 0; }
-  100% { background-position: 0% 0%, 10% 8%, 92% 10%, 55% 90%, 8% 92%, 0 0; }
+  0% {
+    background-position: 0% 0%, 100% 0%, 0 0, 0 0;
+  }
+  100% {
+    background-position: 10% 10%, 90% 12%, 0 0, 0 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #about,
-  #about::before {
+  #about {
     animation: none !important;
   }
 }

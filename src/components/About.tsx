@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { techStore, type SystemLabel } from './TechStore'
 import { TL } from './Scrolltimeline'
 import { MOBILE } from './Avatar'
-import { BlackHole } from './Blackhole'
 
 type SystemRow = {
   label: SystemLabel
@@ -86,6 +85,7 @@ export const About = () => {
     return () => observer.disconnect()
   }, [])
 
+
   // ── Fit check: hide the bio when pod + panel can't share the column ────
   // Strategy: always test the panel's WITH-bio height against the space
   // below the pod band. Because the tested quantity never changes when the
@@ -149,12 +149,6 @@ export const About = () => {
         zIndex: 5, // LAYERS OVER HOME HTML
       }}
     >
-      {/* Drifting black hole — scoped to this section only. The layer is
-          position:absolute inside #about (which is position:relative), so
-          it's clipped to About's bounds and scrolls with it. z-index 0
-          keeps it behind the sticky panel (z-index 1 below). */}
-      <BlackHole />
-
       {/* Layout lives in the .about-sticky class (not inline) so the
           ≤1000px media query below can restack it: pod on top, panel
           below, no overlap. */}
@@ -404,8 +398,7 @@ export const About = () => {
 
         /* Sticky viewport for the panel. Default (desktop): vertically
            centered, left-aligned. Moved out of inline styles so the
-           mobile media query can restack it. z-index 1 keeps the panel
-           above the section-scoped BlackHole layer (z-index 0). */
+           mobile media query can restack it. */
         .about-sticky {
           position: sticky;
           top: 0;

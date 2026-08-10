@@ -88,6 +88,7 @@ const IDLE_GLOW = {
     rise: 0.6,
     hold: 0.8,
     fall: 0.6,
+    radius: KAME.glowScale, // was glowScale * 1.4 — shrunk so it doesn't swallow the model
 }
 
 // ─── IdleGlow — animates via refs so it never triggers re-renders ──────────
@@ -120,7 +121,7 @@ function IdleGlow({
                 position={[0, KAME.lightPos[1], 0]}
             />
             <mesh ref={meshRef} position={[0, KAME.lightPos[1], 0]}>
-                <sphereGeometry args={[KAME.glowScale * 1.4, 32, 32]} />
+                <sphereGeometry args={[IDLE_GLOW.radius, 32, 32]} />
                 <meshBasicMaterial color={IDLE_GLOW.color} transparent opacity={0} depthWrite={false} />
             </mesh>
         </>

@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
+import { Stats } from '@react-three/drei'
 import { Home } from './components/Home.jsx'
 
 import './App.css'
@@ -37,7 +38,7 @@ export default function App() {
   const titles = [
     { text: "Software Developer", color: "#2b4570", bg: "#2b4570", shadow: "rgba(43, 69, 112, 0.15)" },
     { text: "Student", color: "#6366f1", bg: "#6366f1", shadow: "rgba(99, 102, 241, 0.15)" },
-    { text: "Fullstack Developer", color: "#10b981", bg: "#10b981", shadow: "rgba(16, 185, 129, 0.15)" }
+    { text: "Fullstack Developer", color: "#047857", bg: "#047857", shadow: "rgba(4, 120, 87, 0.15)" }
   ];
 
   // REF FOR ROUTING CLICKS INTO THE CANVAS
@@ -112,6 +113,8 @@ export default function App() {
           <Suspense fallback={null}>
             <Home />
           </Suspense>
+          {/* TEMPORARY — on-screen FPS bar. Remove once done checking. */}
+          <Stats />
         </Canvas>
       </div>
 
@@ -186,8 +189,6 @@ export default function App() {
           style={{ height: runwayHeightVh(), width: '100%' }}
         />
 
-        {/* The BlackHole now lives inside <About /> so it's scoped to the
-            About section only — see About.tsx / Blackhole.tsx. */}
         <div style={{ pointerEvents: 'auto' }}>
           <About />
         </div>

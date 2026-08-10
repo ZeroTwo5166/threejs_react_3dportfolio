@@ -14,6 +14,7 @@
 
 import 'dotenv/config'
 import express from 'express'
+import compression from 'compression'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -41,6 +42,7 @@ function rateLimited(ip) {
 }
 
 const app = express()
+app.use(compression())
 app.use(express.json({ limit: '32kb' }))
 
 app.post('/api/contact', async (req, res) => {
@@ -106,7 +108,32 @@ app.post('/api/contact', async (req, res) => {
 // app.get('*', ...)) sidesteps Express 5's stricter wildcard route syntax
 // (path-to-regexp no longer accepts a bare '*') — this form works
 // unchanged across Express 4 and 5.
-app.use(express.static(DIST))
+//
+// Cache-Control split in two:
+//  - /assets/* (Vite's hashed JS/CSS bundles) — the filename changes on
+//    every content change, so it's safe to cache for a year and never
+//    revalidate.
+//  - everything else (models/animations/logos passed through from
+//    public/, plus index.html) — filenames don't change when the content
+//    does, so cache for a day and let the browser revalidate rather than
+//    risk serving a stale asset indefinitely.
+app.use(
+  '/assets',
+  express.static(path.join(DIST, 'assets'), {
+    immutable: true,
+    maxAge: '1y',
+  })
+)
+app.use(
+  express.static(DIST, {
+    maxAge: '1d',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache')
+      }
+    },
+  })
+)
 app.use((_req, res) => res.sendFile(path.join(DIST, 'index.html')))
 
 app.listen(PORT, () => {

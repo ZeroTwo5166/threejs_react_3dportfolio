@@ -5,6 +5,22 @@ type SectionId = 'about' | 'projects' | 'contact'
 
 const SECTION_IDS: SectionId[] = ['about', 'projects', 'contact']
 
+// backdrop-filter can't be cached like a normal paint — the browser has to
+// re-sample and re-blur whatever's behind the element on every composited
+// frame. The nav pill and sound button are position:fixed and on-screen for
+// the entire scroll, over an animating WebGL canvas, so this cost recurs on
+// every single scroll frame. A lighter single-filter blur (no compound
+// saturate()) cuts that per-frame cost noticeably; see `reduceBlur` below
+// for the mobile/touch case, which drops it entirely.
+const NAV_BLUR = 'blur(10px)'
+
+// Bumps an rgba(...) string's alpha — used as the solid fallback background
+// when backdrop-filter is dropped on coarse-pointer devices, so the pill
+// still reads as opaque-ish without needing the blur.
+function boostAlpha(rgba: string, alpha: number): string {
+  return rgba.replace(/[\d.]+\)$/, `${alpha})`)
+}
+
 // Per-theme palette. 'violet' mirrors the accent Projects.tsx uses
 // (ACCENT = '#c084fc', BG = '#0d0a12') and 'teal' mirrors Contact.tsx
 // (ACCENT = '#4fe3b5', BG = '#0a1210), so the navbar matches whichever
@@ -69,42 +85,58 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
   const audioRef = useRef<HTMLAudioElement>(null)
   const hideSliderTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Coarse-pointer (touch) devices have the weakest GPUs and suffer most
+  // from backdrop-filter's per-frame resample cost — same signal App.tsx
+  // uses for its lowPower shadow/dpr scaling. Drop the blur entirely there.
+  const [reduceBlur] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+  )
+
   useEffect(() => {
-    const onScroll = () => {
-      const about = document.getElementById('about')
-      const projects = document.getElementById('projects')
-      const contact = document.getElementById('contact')
+    // rAF-throttled, same pattern as IntroText.tsx: at most one style/DOM
+    // read pass per frame, instead of running full getBoundingClientRect
+    // reads for every section on every native 'scroll' event (which can
+    // fire many times per frame during momentum scrolling).
+    let ticking = false
+
+    const update = () => {
+      ticking = false
+
+      // One getBoundingClientRect per section per frame (not two) — reused
+      // for both the theme precedence check and the active-section state.
+      const tops: Partial<Record<SectionId, number>> = {}
+      for (const id of SECTION_IDS) {
+        const el = document.getElementById(id)
+        if (el) tops[id] = el.getBoundingClientRect().top
+      }
 
       // Precedence: teal (contact) > violet (projects) > blue (about) >
       // cream (hero/default). Checked in document order so whichever
       // section you've scrolled into furthest wins.
       let nextTheme: Theme = 'cream'
-      if (about && about.getBoundingClientRect().top <= 200) {
-        nextTheme = 'blue'
-      }
-      if (projects && projects.getBoundingClientRect().top <= 200) {
-        nextTheme = 'violet'
-      }
-      if (contact && contact.getBoundingClientRect().top <= 200) {
-        nextTheme = 'teal'
-      }
+      if (tops.about !== undefined && tops.about <= 200) nextTheme = 'blue'
+      if (tops.projects !== undefined && tops.projects <= 200) nextTheme = 'violet'
+      if (tops.contact !== undefined && tops.contact <= 200) nextTheme = 'teal'
       setTheme(nextTheme)
 
-      // Determine which section is currently in view
+      // Determine which section is currently in view. Section counts as
+      // "active" once its top has scrolled past this same 200px offset.
       let current: SectionId | null = null
       for (const id of SECTION_IDS) {
-        const el = document.getElementById(id)
-        if (!el) continue
-        const rect = el.getBoundingClientRect()
-        // Section counts as "active" once its top has scrolled past this offset
-        if (rect.top <= 200) {
-          current = id
-        }
+        const top = tops[id]
+        if (top !== undefined && top <= 200) current = id
       }
       setActive(current)
     }
 
-    onScroll()
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true
+        requestAnimationFrame(update)
+      }
+    }
+
+    update()
 
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
@@ -307,7 +339,7 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
         {/* CENTER: NAV LINKS & ENERGY */}
         <div className="navbar-center-container" style={styles.navContainer}>
           <div style={styles.energy(theme)} />
-          <nav style={styles.nav(theme)}>
+          <nav style={styles.nav(theme, reduceBlur)}>
             <div style={styles.center}>
               {SECTION_IDS.map((id) => (
                 <button
@@ -339,7 +371,7 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
           <div style={styles.soundGroup}>
             <button
               onClick={toggleSound}
-              style={styles.sound(theme, soundOn)}
+              style={styles.sound(theme, soundOn, reduceBlur)}
               aria-label={soundOn ? 'Mute sound' : 'Unmute sound'}
             >
               {soundOn ? (
@@ -494,7 +526,7 @@ const styles = {
     justifyContent: 'center',
   } satisfies React.CSSProperties,
 
-  nav: (theme: Theme): React.CSSProperties => {
+  nav: (theme: Theme, reduceBlur: boolean): React.CSSProperties => {
     const c = THEME_COLORS[theme]
     return {
       pointerEvents: 'auto',
@@ -505,10 +537,10 @@ const styles = {
       padding: '10px 14px',
       borderRadius: '999px',
 
-      backdropFilter: 'blur(18px) saturate(160%)',
-      WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+      backdropFilter: reduceBlur ? undefined : NAV_BLUR,
+      WebkitBackdropFilter: reduceBlur ? undefined : NAV_BLUR,
 
-      background: c.bg,
+      background: reduceBlur ? boostAlpha(c.bg, 0.92) : c.bg,
       border: `1px solid ${c.border}`,
       boxShadow: c.boxShadow,
 
@@ -571,7 +603,7 @@ const styles = {
     }
   },
 
-  sound: (theme: Theme, on: boolean): React.CSSProperties => {
+  sound: (theme: Theme, on: boolean, reduceBlur: boolean): React.CSSProperties => {
     const c = THEME_COLORS[theme]
     return {
       display: 'flex',
@@ -587,8 +619,8 @@ const styles = {
 
       transition: 'all 0.25s ease',
 
-      backdropFilter: 'blur(18px) saturate(160%)',
-      WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+      backdropFilter: reduceBlur ? undefined : NAV_BLUR,
+      WebkitBackdropFilter: reduceBlur ? undefined : NAV_BLUR,
 
       color: on ? '#fff' : c.isLight ? '#2a2a2a' : 'rgba(255,255,255,0.6)',
 
@@ -596,7 +628,9 @@ const styles = {
         ? theme === 'cream'
           ? 'rgba(214, 122, 122, 0.85)' // kept as the original warm "mute" red for the cream theme
           : `rgba(${c.accentRgb},0.85)`
-        : c.bg,
+        : reduceBlur
+          ? boostAlpha(c.bg, 0.92)
+          : c.bg,
     }
   },
 }
