@@ -11,12 +11,23 @@ const EASE = 0.3 // per-frame lerp factor toward the target size
 let hoverCount = 0
 let notify: ((hovering: boolean) => void) | null = null
 
+// Normalized device coords (-1..1) of the last mousemove, for non-DOM code
+// (e.g. Avatar's head-follow-cursor) that needs pointer position without
+// subscribing to React state. Only populated on fine-pointer devices — see
+// onMove below — so touch devices correctly report "no pointer".
+let ndcX = 0
+let ndcY = 0
+let ndcSeen = false
+
 export const cursorStore = {
   setHover(hovering: boolean) {
     // Counted, not boolean: overlapping hover sources (a DOM link on top of
     // a 3D object) won't flicker each other off.
     hoverCount = Math.max(0, hoverCount + (hovering ? 1 : -1))
     notify?.(hoverCount > 0)
+  },
+  getNDC(): { x: number; y: number } | null {
+    return ndcSeen ? { x: ndcX, y: ndcY } : null
   },
 }
 
@@ -61,6 +72,9 @@ export function CustomCursor() {
     const onMove = (e: MouseEvent) => {
       mouseX = e.clientX
       mouseY = e.clientY
+      ndcX = (e.clientX / window.innerWidth) * 2 - 1
+      ndcY = -(e.clientY / window.innerHeight) * 2 + 1
+      ndcSeen = true
       if (!seen) {
         seen = true
         cursor.style.opacity = '1'
@@ -94,6 +108,7 @@ export function CustomCursor() {
       document.removeEventListener('mouseout', onOut, true)
       notify = null
       hoverCount = 0
+      ndcSeen = false
       if (frame) cancelAnimationFrame(frame)
     }
   }, [finePointer])

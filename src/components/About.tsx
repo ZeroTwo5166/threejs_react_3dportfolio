@@ -247,7 +247,7 @@ export const About = () => {
                 transitionDelay: '160ms',
               }}
             >
-              Mission: ship software
+              Mission: ship software and Websites
             </p>
 
             {/* Bio — collapses on short mobile viewports (see fit check) */}

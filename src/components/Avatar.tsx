@@ -7,6 +7,7 @@ import * as THREE from 'three'
 import { TL, ABOUT_UNPIN, useViewportUnit, scrollScreens, avatarPhase, dampLerp } from './Scrolltimeline'
 import type { AvatarPhaseName } from './Scrolltimeline'
 import { SYSTEM_TECHS, techStore } from './TechStore'
+import { cursorStore } from './CustomCursor'
 
 type AvatarProps = {
   position?: [number, number, number]
@@ -243,6 +244,18 @@ const PHASE_CLIP: Record<AvatarPhaseName, 'Typing' | 'SitToStand' | 'Turning' | 
 
 const HEAD_FOLLOW_TARGET = new THREE.Vector3(-32, 138, 253)
 
+// In the About section (phase 'landed'), the head tracks the mouse cursor
+// instead of the fixed HEAD_FOLLOW_TARGET: the target swings around that
+// same base point by up to this many world units per axis, mapped from
+// normalized pointer position (-1..1). Vertical range is asymmetric —
+// looking down tucks the chin toward the chest/collar geometry, which reads
+// as far less rotation than the same swing upward (which opens a visible
+// gap under the chin), so it needs a much bigger push to look comparable.
+const CURSOR_FOLLOW_RANGE_X = 100
+const CURSOR_FOLLOW_RANGE_Y_UP = 70
+const CURSOR_FOLLOW_RANGE_Y_DOWN = 170
+const CURSOR_FOLLOW_LERP = 0.12
+
 // Collapses a static prop model's fragmented mesh hierarchy into one merged
 // mesh per unique material. The stasis pod GLB ships ~100+ separate tiny
 // meshes (individual bolts/supports/panels) that all share a handful of
@@ -337,6 +350,8 @@ export function Avatar(props: AvatarProps) {
   const probeA = useRef(new THREE.Vector3())
   const probeB = useRef(new THREE.Vector3())
   const parentScaleTmp = useRef(new THREE.Vector3())
+  const desiredHeadTargetTmp = useRef(new THREE.Vector3())
+  const headTargetRef = useRef(HEAD_FOLLOW_TARGET.clone())
 
   // Blend-into-pod rotation: the target orientation is constant
   // (IN_POD_DEFAULTS never changes at runtime), so it's computed once here
@@ -603,8 +618,30 @@ export function Avatar(props: AvatarProps) {
     const head = nodes.mixamorigHead as THREE.Bone | undefined
 
     if (headFollowActive) {
-      neck?.lookAt(HEAD_FOLLOW_TARGET)
-      head?.lookAt(HEAD_FOLLOW_TARGET)
+      // In the About section (landed, in the stasis pod), swing the look
+      // target around HEAD_FOLLOW_TARGET based on the mouse position so the
+      // head appears to track the cursor. Elsewhere (walking up to the pod,
+      // etc.) it keeps looking at the fixed point as before.
+      const pointer = phase === 'landed' ? cursorStore.getNDC() : null
+      const desired = desiredHeadTargetTmp.current
+      if (pointer) {
+        const rangeY = pointer.y >= 0 ? CURSOR_FOLLOW_RANGE_Y_UP : CURSOR_FOLLOW_RANGE_Y_DOWN
+        desired.set(
+          HEAD_FOLLOW_TARGET.x + pointer.x * CURSOR_FOLLOW_RANGE_X,
+          HEAD_FOLLOW_TARGET.y + pointer.y * rangeY,
+          HEAD_FOLLOW_TARGET.z
+        )
+      } else {
+        desired.copy(HEAD_FOLLOW_TARGET)
+      }
+
+      const followTarget = headTargetRef.current
+      followTarget.x = dampLerp(followTarget.x, desired.x, CURSOR_FOLLOW_LERP, delta)
+      followTarget.y = dampLerp(followTarget.y, desired.y, CURSOR_FOLLOW_LERP, delta)
+      followTarget.z = dampLerp(followTarget.z, desired.z, CURSOR_FOLLOW_LERP, delta)
+
+      neck?.lookAt(followTarget)
+      head?.lookAt(followTarget)
     } else {
       if (defaultNeckRotation.current && neck) neck.quaternion.slerp(defaultNeckRotation.current, 1 - Math.pow(1 - 0.1, delta * 60))
       if (defaultHeadRotation.current && head) head.quaternion.slerp(defaultHeadRotation.current, 1 - Math.pow(1 - 0.1, delta * 60))

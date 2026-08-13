@@ -362,13 +362,22 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
           </nav>
         </div>
 
-        {/* RIGHT: SOUND */}
-        <div
-          style={styles.soundWrapper}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <div style={styles.soundGroup}>
+        {/* RIGHT: CV DOWNLOAD + SOUND */}
+        <div style={styles.soundWrapper}>
+          <a
+            href="/CV.pdf"
+            download="Subarna-Gurung-CV.pdf"
+            style={styles.cvButton(theme, reduceBlur)}
+            aria-label="Download CV"
+          >
+            CV
+          </a>
+
+          <div
+            style={styles.soundGroup}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
             <button
               onClick={toggleSound}
               style={styles.sound(theme, soundOn, reduceBlur)}
@@ -477,6 +486,9 @@ const styles = {
     position: 'absolute',
     right: 32,
     top: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
     pointerEvents: 'auto',
   } satisfies React.CSSProperties,
 
@@ -631,6 +643,40 @@ const styles = {
         : reduceBlur
           ? boostAlpha(c.bg, 0.92)
           : c.bg,
+    }
+  },
+
+  // Same neutral circle as the sound button, but labeled "CV" outright —
+  // a download-arrow icon alone doesn't communicate what's being
+  // downloaded, so the text does the job instead.
+  cvButton: (theme: Theme, reduceBlur: boolean): React.CSSProperties => {
+    const c = THEME_COLORS[theme]
+    return {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+
+      width: '44px',
+      height: '44px',
+      padding: '0',
+
+      border: `1px solid ${c.border}`,
+      borderRadius: '50%',
+
+      fontSize: '12px',
+      fontWeight: 800,
+      letterSpacing: '0.02em',
+      textDecoration: 'none',
+
+      transition: 'all 0.25s ease',
+
+      backdropFilter: reduceBlur ? undefined : NAV_BLUR,
+      WebkitBackdropFilter: reduceBlur ? undefined : NAV_BLUR,
+
+      // Cream's accent (tan) is too low-contrast as text on its own light
+      // background — fall back to the same dark text the nav pills use.
+      color: c.isLight ? '#2a2a2a' : c.accent,
+      background: reduceBlur ? boostAlpha(c.bg, 0.92) : c.bg,
     }
   },
 }
