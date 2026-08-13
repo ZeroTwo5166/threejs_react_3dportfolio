@@ -420,7 +420,10 @@ export const Contact = () => {
 
       if (res.ok) {
         setTx('sent')
-        setPayload('') // the message left the ship — clear the buffer
+        // The message left the ship — clear the whole form, not just the buffer.
+        setName('')
+        setFrom('')
+        setPayload('')
       } else {
         setTx('error')
       }

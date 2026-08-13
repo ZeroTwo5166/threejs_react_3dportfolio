@@ -32,7 +32,7 @@ const PROJECTS: Project[] = [
     description: 'A two-sided rental marketplace connecting people who have items to lend with people who need them for a price — built with interactive map discovery so you can find and book nearby listings, plus full listing management for owners renting out their own gear.',
     tags: ['Angular', 'ASP.NET', 'MSSQL', 'SignalR', 'REST API', 'Leaflet'],
     status: 'ONLINE',
-    thumbnail: '/projects/rentit.png',
+    thumbnail: '/projects/rentit.webp',
     link: 'https://rentit.dryorc.site/',
     repo: 'https://github.com/ZeroTwo5166/RentIt.git',
   },
@@ -42,7 +42,7 @@ const PROJECTS: Project[] = [
     description: 'A full-featured real-time messaging platform in the spirit of Discord — servers, channels, DMs, and live presence — reimagined with a custom visual identity and a handful of features tailored to how I actually use chat apps day to day.',
     tags: ['NextJS', 'Convex', 'REST API',],
     status: 'ONLINE',
-    thumbnail: '/projects/dcord.png',
+    thumbnail: '/projects/dcord.webp',
     link: 'https://dcord.dryorc.site/',
     repo: 'https://github.com/ZeroTwo5166/DiscordClone.git',
     featured: false,
@@ -65,7 +65,7 @@ const PROJECTS: Project[] = [
     description: 'A map-based restaurant discovery app that helps users find nearby restaurants and search for specific dishes in their area. Built with an interactive map, location-aware search, and detailed restaurant information to make finding your next meal fast and intuitive.',
     tags: ['NextJS', 'Axios'],
     status: 'OFFLINE',
-    thumbnail: '/projects/dinefinder.png',
+    thumbnail: '/projects/dinefinder.webp',
     repo: 'https://github.com/ZeroTwo5166/Dinefinder.git',
   },
   {
@@ -688,8 +688,6 @@ export const Projects = () => {
       )}
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
-
         .projects-grid {
           grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
         }

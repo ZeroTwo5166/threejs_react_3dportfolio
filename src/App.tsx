@@ -1,6 +1,5 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Stats } from '@react-three/drei'
 import { Home } from './components/Home.jsx'
 
 import './App.css'
@@ -9,9 +8,12 @@ import { CustomCursor } from './components/CustomCursor.js'
 import { IntroText } from './components/Introtext.js'
 import { About } from './components/About.js'
 import { Navbar } from './components/Navbar.js'
-import { Projects } from './components/Projects.js'
 import { Preloader } from './components/Preloader.js'
-import { Contact } from './components/Contact.js'
+
+// Below-the-fold sections — split into their own chunks so the initial
+// bundle only has to parse/eval Home + About before first paint.
+const Projects = lazy(() => import('./components/Projects.js').then((m) => ({ default: m.Projects })))
+const Contact = lazy(() => import('./components/Contact.js').then((m) => ({ default: m.Contact })))
 
 
 export function getMaxScroll() {
@@ -113,8 +115,6 @@ export default function App() {
           <Suspense fallback={null}>
             <Home />
           </Suspense>
-          {/* TEMPORARY — on-screen FPS bar. Remove once done checking. */}
-          <Stats />
         </Canvas>
       </div>
 
@@ -193,8 +193,10 @@ export default function App() {
           <About />
         </div>
 
-        <Projects />
-        <Contact />
+        <Suspense fallback={null}>
+          <Projects />
+          <Contact />
+        </Suspense>
       </main>
     </div>
   )

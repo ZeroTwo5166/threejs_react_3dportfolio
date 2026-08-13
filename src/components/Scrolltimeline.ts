@@ -100,6 +100,16 @@ export function progress(s: number, start: number, end: number): number {
   return Math.min(Math.max((s - start) / (end - start), 0), 1)
 }
 
+// Frame-rate-independent smoothing lerp. `factor` is the fraction covered
+// per frame *at 60fps* (i.e. drop-in replacement for a plain
+// `lerp(current, target, factor)` that used to be called once per rendered
+// frame) — scaling by `delta` keeps the same real-time convergence speed
+// regardless of the actual frame rate, so this animation doesn't visibly
+// speed up/slow down as FPS changes (e.g. after a perf improvement).
+export function dampLerp(current: number, target: number, factor: number, delta: number): number {
+  return current + (target - current) * (1 - Math.pow(1 - factor, delta * 60))
+}
+
 export type AvatarPhaseName =
   | 'typing'
   | 'sitToStand'

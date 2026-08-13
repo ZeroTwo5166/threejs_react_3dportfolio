@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three'
 import { Avatar } from './Avatar'
-import { TL, useViewportUnit, scrollScreens, progress } from './Scrolltimeline'
+import { TL, useViewportUnit, scrollScreens, progress, dampLerp } from './Scrolltimeline'
 import { cursorStore } from './CustomCursor';
 
 type ModelProps = {
@@ -18,10 +18,10 @@ type ModelProps = {
 // ── Models ──────────────────────────────────────────────────────────────────
 
 export function ScifiDesk(props: ModelProps) {
-    const { scene } = useGLTF('models/scifiDesk.glb')
+    const { scene } = useGLTF('models/scifiDesk.compressed.glb')
     return <primitive object={scene} {...props} />
 }
-useGLTF.preload('models/scifiDesk.glb')
+useGLTF.preload('models/scifiDesk.compressed.glb')
 
 export function ScifiChair(props: ModelProps) {
     const { scene } = useGLTF('models/ScifiChair.compressed.glb')
@@ -30,10 +30,10 @@ export function ScifiChair(props: ModelProps) {
 useGLTF.preload('models/ScifiChair.compressed.glb')
 
 export function Monalisa(props: ModelProps) {
-    const { scene } = useGLTF('models/Monalisa.glb')
+    const { scene } = useGLTF('models/Monalisa.compressed.glb')
     return <primitive object={scene} {...props} />
 }
-useGLTF.preload('models/Monalisa.glb')
+useGLTF.preload('models/Monalisa.compressed.glb')
 
 export function RoomTable(props: ModelProps) {
     const { scene } = useGLTF('models/Table.compressed.glb')
@@ -205,20 +205,22 @@ export function Home() {
         // ── Responsive scale + recenter (smooth) ───────────────────────────────
         if (sceneGroupRef.current) {
             const targetScale = targetModelScaleRef.current
-            const sc = THREE.MathUtils.lerp(sceneGroupRef.current.scale.x, targetScale, 0.08)
+            const sc = dampLerp(sceneGroupRef.current.scale.x, targetScale, 0.08, delta)
             sceneGroupRef.current.scale.set(sc, sc, sc)
 
             const shrinkRange = 1 - MODEL_SCALE_MIN
             const t = shrinkRange > 0 ? THREE.MathUtils.clamp((1 - targetScale) / shrinkRange, 0, 1) : 0
-            sceneGroupRef.current.position.x = THREE.MathUtils.lerp(
+            sceneGroupRef.current.position.x = dampLerp(
                 sceneGroupRef.current.position.x,
                 SCENE.pos[0] + RECENTER_OFFSET_X * t,
-                0.08
+                0.08,
+                delta
             )
-            sceneGroupRef.current.position.y = THREE.MathUtils.lerp(
+            sceneGroupRef.current.position.y = dampLerp(
                 sceneGroupRef.current.position.y,
                 SCENE.pos[1] + RECENTER_OFFSET_Y * t,
-                0.08
+                0.08,
+                delta
             )
         }
 
@@ -294,8 +296,8 @@ export function Home() {
             targetRotationY = p * CHAIR_MAX_ROT
         }
 
-        chairRef.current.position.z = THREE.MathUtils.lerp(chairRef.current.position.z, targetZ, 0.05)
-        chairRef.current.rotation.y = THREE.MathUtils.lerp(chairRef.current.rotation.y, targetRotationY, 0.05)
+        chairRef.current.position.z = dampLerp(chairRef.current.position.z, targetZ, 0.05, delta)
+        chairRef.current.rotation.y = dampLerp(chairRef.current.rotation.y, targetRotationY, 0.05, delta)
 
 
         // Avatar rides the chair: shares its rotation and z until the jump

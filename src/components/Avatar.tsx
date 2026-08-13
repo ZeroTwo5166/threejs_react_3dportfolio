@@ -4,7 +4,7 @@ import { useFrame, useGraph } from '@react-three/fiber'
 import { useGLTF, useAnimations, useFBX, useTexture, Billboard } from '@react-three/drei'
 import { SkeletonUtils, mergeBufferGeometries } from 'three-stdlib'
 import * as THREE from 'three'
-import { TL, ABOUT_UNPIN, useViewportUnit, scrollScreens, avatarPhase } from './Scrolltimeline'
+import { TL, ABOUT_UNPIN, useViewportUnit, scrollScreens, avatarPhase, dampLerp } from './Scrolltimeline'
 import type { AvatarPhaseName } from './Scrolltimeline'
 import { SYSTEM_TECHS, techStore } from './TechStore'
 
@@ -20,14 +20,14 @@ type TechIcon = { name: string; tex: string; size?: number; focusScale?: number 
 const PLANET_SIZE_SCALE = 0.7
 
 const TECH_ICONS: TechIcon[] = [
-  { name: 'angular', tex: '/logos/angular.png' },
-  { name: 'csharp', tex: '/logos/csharp.png' },
-  { name: 'mssql', tex: '/logos/mssql.png', size: 9, focusScale: 1.25 },
-  { name: 'nextjs', tex: '/logos/nextjs.png' },
-  { name: 'node', tex: '/logos/node.png' },
-  { name: 'react', tex: '/logos/react.png' },
-  { name: 'threejs', tex: '/logos/threejs.png' },
-  { name: 'ubuntu', tex: '/logos/linux.png' },
+  { name: 'angular', tex: '/logos/angular.webp' },
+  { name: 'csharp', tex: '/logos/csharp.webp' },
+  { name: 'mssql', tex: '/logos/mssql.webp', size: 9, focusScale: 1.25 },
+  { name: 'nextjs', tex: '/logos/nextjs.webp' },
+  { name: 'node', tex: '/logos/node.webp' },
+  { name: 'react', tex: '/logos/react.webp' },
+  { name: 'threejs', tex: '/logos/threejs.webp' },
+  { name: 'ubuntu', tex: '/logos/linux.webp' },
 ]
 
 // ─── Focus animation tuning ─────────────────────────────────────────────────
@@ -138,7 +138,7 @@ function OrbitPlanet({ name, texture, baseAngle, radius, y, angleRef, size, focu
   const meshRef = useRef<THREE.Mesh>(null)
   const matRef = useRef<THREE.MeshBasicMaterial>(null)
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (groupRef.current) {
       // Matches the direction of the old rotation.y += approach: rotating a
       // point by +θ around Y is equivalent to evaluating cos/sin at
@@ -163,11 +163,11 @@ function OrbitPlanet({ name, texture, baseAngle, radius, y, angleRef, size, focu
     }
 
     if (meshRef.current) {
-      const s = THREE.MathUtils.lerp(meshRef.current.scale.x, targetScale, FOCUS_LERP)
+      const s = dampLerp(meshRef.current.scale.x, targetScale, FOCUS_LERP, delta)
       meshRef.current.scale.setScalar(s)
     }
     if (matRef.current) {
-      matRef.current.opacity = THREE.MathUtils.lerp(matRef.current.opacity, targetOpacity, FOCUS_LERP)
+      matRef.current.opacity = dampLerp(matRef.current.opacity, targetOpacity, FOCUS_LERP, delta)
     }
   })
 
@@ -204,7 +204,7 @@ function TechOrbit({ planets, autoOrbit, speed, tilt }: TechOrbitProps) {
     if (autoOrbit) {
       const focused = techStore.getSelected() !== null
       const targetSpeed = focused ? speed * FOCUS_ORBIT_FACTOR : speed
-      currentSpeed.current = THREE.MathUtils.lerp(currentSpeed.current, targetSpeed, 0.05)
+      currentSpeed.current = dampLerp(currentSpeed.current, targetSpeed, 0.05, delta)
       angleRef.current += delta * currentSpeed.current
     }
   })
@@ -588,7 +588,7 @@ export function Avatar(props: AvatarProps) {
   useEffect(() => () => { mixer?.stopAllAction() }, [mixer])
 
   // ── Main loop ─────────────────────────────────────────────────────────────
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const s = scrollScreens(vhPx)
     const { phase, p } = avatarPhase(s)
 
@@ -606,14 +606,14 @@ export function Avatar(props: AvatarProps) {
       neck?.lookAt(HEAD_FOLLOW_TARGET)
       head?.lookAt(HEAD_FOLLOW_TARGET)
     } else {
-      if (defaultNeckRotation.current && neck) neck.quaternion.slerp(defaultNeckRotation.current, 0.1)
-      if (defaultHeadRotation.current && head) head.quaternion.slerp(defaultHeadRotation.current, 0.1)
+      if (defaultNeckRotation.current && neck) neck.quaternion.slerp(defaultNeckRotation.current, 1 - Math.pow(1 - 0.1, delta * 60))
+      if (defaultHeadRotation.current && head) head.quaternion.slerp(defaultHeadRotation.current, 1 - Math.pow(1 - 0.1, delta * 60))
     }
 
     // ── Small-screen auto-fit ─────────────────────────────────────────────
-    smallTRef.current = THREE.MathUtils.lerp(smallTRef.current, smallTargetRef.current, 0.08)
+    smallTRef.current = dampLerp(smallTRef.current, smallTargetRef.current, 0.08, delta)
     const smallT = smallTRef.current
-    mobileTRef.current = THREE.MathUtils.lerp(mobileTRef.current, mobileTargetRef.current, 0.08)
+    mobileTRef.current = dampLerp(mobileTRef.current, mobileTargetRef.current, 0.08, delta)
     const mobileT = mobileTRef.current
 
     let effPodX = podX + smallXOffset * smallT

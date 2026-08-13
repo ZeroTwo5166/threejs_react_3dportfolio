@@ -269,7 +269,7 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
 
   return (
     <>
-      <audio ref={audioRef} src="/lofiMusic.mp3" loop />
+      <audio ref={audioRef} src="/lofiMusic.mp3" loop preload="none" />
 
       <style>{`
         @media (max-width: 500px) {
