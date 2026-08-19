@@ -31,27 +31,27 @@ const blocks: IntroBlock[] = [
     type: 'slide',
     start: 0.9,
     end: 2.1, // fades out just before TL.CHAIR_END (2.5)
-    eyebrow: '01 — The Assets',
-    title: 'Sourced & Refined.',
-    body: 'High-quality 3D geometry is sourced from Sketchfab and brought into Blender for meticulous preparation. The workflow focuses on custom texture painting, UV mapping, and material baking to ensure every asset is perfectly optimized for the web.',
+    eyebrow: '01 — The Developer',
+    title: 'Full-Stack, Grounded in Fundamentals.',
+    body: 'Five years of hands-on development alongside my studies, building and maintaining web and desktop applications from the ground up. Now pursuing a Software Engineering degree at DTU, backed by a solid mix of theory and real production work.',
   },
   {
     id: 'b2',
     type: 'teleport',
     start: 2.2,
     end: 3.4, // gone shortly before TL.TURN_END (3.6)
-    eyebrow: '02 — The Interactive',
-    title: 'Powered by Three.js.',
-    body: 'Static models evolve into dynamic environments. Utilizing React Three Fiber, this experience renders complex WebGL scenes natively in the browser, featuring fluid camera choreography and elements that react seamlessly to scroll progression.',
+    eyebrow: '02 — The Stack',
+    title: 'Angular to .NET, Front to Back.',
+    body: 'Comfortable across the full stack — Angular, Next.js, and React on the frontend; C#, ASP.NET, and RESTful APIs on the backend. Experienced with SQL databases, and increasingly drawn to 3D and interactive web experiences like this one.',
   },
   {
     id: 'b3',
     type: 'slide',
     start: 3.5,
     end: 4.7, // 1.2 screens, same as b1 and b2 — fades out as the jump begins
-    eyebrow: '03 — The Architecture',
-    title: 'Built on Next.js & Vite.',
-    body: 'Immersive 3D demands a blazing-fast foundation. This website leverages a modern React-based stack to perfectly balance the heavy computational load of WebGL rendering with a highly responsive, optimized frontend experience.',
+    eyebrow: '03 — The Mindset',
+    title: 'Solving Problems That Matter.',
+    body: 'Motivated by complex problems and scalable, user-friendly solutions. Analytical, detail-oriented, and collaborative — looking to bring that mindset to a team building things worth building.',
   },
 ]
 
