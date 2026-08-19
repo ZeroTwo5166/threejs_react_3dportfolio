@@ -366,9 +366,10 @@ export const Navbar = ({ timeline: _timeline }: NavbarProps) => {
         <div style={styles.soundWrapper}>
           <a
             href="/CV.pdf"
-            download="Subarna-Gurung-CV.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
             style={styles.cvButton(theme, reduceBlur)}
-            aria-label="Download CV"
+            aria-label="View CV"
           >
             CV
           </a>
